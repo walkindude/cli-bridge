@@ -1,0 +1,14 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run test
+      - run: pnpm run build

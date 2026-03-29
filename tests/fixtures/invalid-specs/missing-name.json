@@ -1,0 +1,22 @@
+{
+  "specVersion": "1",
+  "binary": "mytool",
+  "binaryVersion": "1.0.0",
+  "description": "Missing name field",
+  "versionDetection": {
+    "command": "--version",
+    "pattern": "(\\d+\\.\\d+)"
+  },
+  "triggers": {
+    "positive": ["use mytool"],
+    "negative": ["avoid mytool"]
+  },
+  "commands": [
+    {
+      "name": "run",
+      "description": "Run something",
+      "usage": "mytool run",
+      "output": { "format": "text" }
+    }
+  ]
+}

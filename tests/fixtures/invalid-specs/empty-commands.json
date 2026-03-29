@@ -1,0 +1,16 @@
+{
+  "name": "mytool",
+  "specVersion": "1",
+  "binary": "mytool",
+  "binaryVersion": "1.0.0",
+  "description": "Empty commands array",
+  "versionDetection": {
+    "command": "--version",
+    "pattern": "(\\d+\\.\\d+)"
+  },
+  "triggers": {
+    "positive": ["use mytool"],
+    "negative": ["avoid mytool"]
+  },
+  "commands": []
+}
