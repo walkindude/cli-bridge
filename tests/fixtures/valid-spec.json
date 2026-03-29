@@ -1,0 +1,87 @@
+{
+  "name": "mytool",
+  "specVersion": "1",
+  "binary": "mytool",
+  "binaryVersion": "1.2.3",
+  "description": "A fictional CLI tool for testing cli-bridge",
+  "versionDetection": {
+    "command": "--version",
+    "pattern": "v?(\\d+\\.\\d+\\.\\d+)"
+  },
+  "triggers": {
+    "positive": ["use mytool", "run mytool command", "mytool list"],
+    "negative": ["don't use mytool", "avoid mytool"]
+  },
+  "globalFlags": [
+    {
+      "name": "verbose",
+      "short": "v",
+      "description": "Enable verbose output",
+      "required": false,
+      "type": "boolean"
+    },
+    {
+      "name": "output",
+      "short": "o",
+      "description": "Output format",
+      "required": false,
+      "type": "string",
+      "enum": ["json", "text", "table"],
+      "default": "text"
+    }
+  ],
+  "commands": [
+    {
+      "name": "list",
+      "description": "List all available items",
+      "usage": "mytool list [--filter <pattern>]",
+      "flags": [
+        {
+          "name": "filter",
+          "short": "f",
+          "description": "Filter pattern",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "output": {
+        "format": "json",
+        "jsonPath": "items"
+      },
+      "timeoutMs": 10000
+    },
+    {
+      "name": "get",
+      "description": "Get a specific item by name",
+      "usage": "mytool get <name>",
+      "args": [
+        {
+          "name": "name",
+          "description": "The item name to retrieve",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "output": {
+        "format": "json"
+      }
+    },
+    {
+      "name": "run",
+      "description": "Run a command directly",
+      "usage": "mytool run <script>",
+      "args": [
+        {
+          "name": "script",
+          "description": "Path to script to run",
+          "required": true,
+          "type": "path"
+        }
+      ],
+      "output": {
+        "format": "text",
+        "successPattern": "done"
+      }
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+import { promises as fs } from 'node:fs';
+import { join } from 'node:path';
+import { validateSpec } from './schema.js';
+import { resolveBinary, detectVersion, resolveSpecVersion } from './resolver.js';
+import type { CliToolSpec, CommandDef, FlagDef } from './schema.js';
+import type { SpecLoadError } from './types.js';
+
+export interface LoadedSpec {
+  spec: CliToolSpec;
+  resolvedBinaryPath: string;
+  installedVersion: string;
+  exactVersionMatch: boolean;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: 'object';
+    properties: Record<string, unknown>;
+    required: string[];
+  };
+}
+
+/**
+ * Discovers and loads all valid specs from all spec directories.
+ */
+export async function discoverSpecs(
+  specDirs: string[]
+): Promise<{ specs: LoadedSpec[]; errors: SpecLoadError[] }> {
+  const specs: LoadedSpec[] = [];
+  const errors: SpecLoadError[] = [];
+  const seenTools = new Set<string>();
+
+  for (const specDir of specDirs) {
+    let toolDirs: string[];
+    try {
+      const entries = await fs.readdir(specDir, { withFileTypes: true });
+      toolDirs = entries
+        .filter((e) => e.isDirectory())
+        .map((e) => join(specDir, e.name));
+    } catch {
+      continue;
+    }
+
+    for (const toolDir of toolDirs) {
+      const toolName = toolDir.split('/').pop() ?? toolDir;
+
+      if (seenTools.has(toolName)) continue;
+
+      // Resolve binary
+      const binaryResult = await resolveBinary(toolName);
+      if (!binaryResult.ok) {
+        errors.push({
+          specPath: toolDir,
+          message: `Binary not found: ${binaryResult.error.message}`,
+        });
+        continue;
+      }
+
+      // Detect version
+      const versionResult = await detectVersion(binaryResult.value);
+      if (!versionResult.ok) {
+        errors.push({
+          specPath: toolDir,
+          message: `Version detection failed: ${versionResult.error.message}`,
+        });
+        continue;
+      }
+
+      // Resolve spec version
+      const specVersionResult = await resolveSpecVersion(toolDir, versionResult.value);
+      if (!specVersionResult.ok) {
+        errors.push({
+          specPath: toolDir,
+          message: `Spec resolution failed: ${specVersionResult.error.message}`,
+        });
+        continue;
+      }
+
+      const { specPath, exactMatch } = specVersionResult.value;
+
+      // Load and validate spec
+      let raw: string;
+      try {
+        raw = await fs.readFile(specPath, 'utf-8');
+      } catch {
+        errors.push({ specPath, message: 'Could not read spec file' });
+        continue;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw) as unknown;
+      } catch {
+        errors.push({ specPath, message: 'Invalid JSON in spec file' });
+        continue;
+      }
+
+      const validation = validateSpec(parsed);
+      if (!validation.ok) {
+        errors.push({
+          specPath,
+          message: `Spec validation failed: ${validation.error.map((e) => `${e.path}: ${e.message}`).join(', ')}`,
+        });
+        continue;
+      }
+
+      if (!exactMatch) {
+        console.error(
+          `[cli-bridge] spec for ${toolName} was generated against v${validation.value.binaryVersion}, installed binary is v${versionResult.value}`
+        );
+      }
+
+      seenTools.add(toolName);
+      specs.push({
+        spec: validation.value,
+        resolvedBinaryPath: binaryResult.value,
+        installedVersion: versionResult.value,
+        exactVersionMatch: exactMatch,
+      });
+    }
+  }
+
+  return { specs, errors };
+}
+
+/**
+ * Converts a validated spec into MCP tool definitions.
+ */
+export function specToMcpTools(spec: CliToolSpec): ToolDefinition[] {
+  return spec.commands.map((command) => {
+    const positiveTriggers = spec.triggers.positive.join(' ');
+    const negativeTriggers = spec.triggers.negative.join(' ');
+    const triggerText = `USE THIS TOOL: ${positiveTriggers}\nDO NOT USE: ${negativeTriggers}`;
+
+    const description = `${command.description}\n\n${triggerText}`;
+
+    const allFlags: FlagDef[] = [
+      ...(spec.globalFlags ?? []),
+      ...(command.flags ?? []),
+    ];
+
+    const properties: Record<string, unknown> = {};
+    const required: string[] = [];
+
+    // Args
+    for (const arg of command.args ?? []) {
+      properties[arg.name] = {
+        type: mapType(arg.type),
+        description: arg.description,
+      };
+      if (arg.required) {
+        required.push(arg.name);
+      }
+    }
+
+    // Flags
+    for (const flag of allFlags) {
+      const prop: Record<string, unknown> = {
+        type: mapType(flag.type),
+        description: flag.description,
+      };
+      if (flag.enum) {
+        prop['enum'] = flag.enum;
+      }
+      if (flag.default !== undefined) {
+        prop['default'] = flag.default;
+      }
+      properties[flag.name] = prop;
+      if (flag.required) {
+        required.push(flag.name);
+      }
+    }
+
+    return {
+      name: `${spec.name}_${command.name}`,
+      description,
+      inputSchema: {
+        type: 'object',
+        properties,
+        required,
+      },
+    };
+  });
+}
+
+function mapType(t: 'string' | 'number' | 'boolean' | 'path'): string {
+  if (t === 'path') return 'string';
+  return t;
+}
+
+/**
+ * Loads a spec from a specific command definition (for use in executor).
+ */
+export function findCommand(spec: CliToolSpec, commandName: string): CommandDef | undefined {
+  return spec.commands.find((c) => c.name === commandName);
+}

@@ -1,0 +1,10 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.{ts,json}"
+      run: pnpm exec eslint {staged_files} --fix
+    typecheck:
+      run: pnpm exec tsc --noEmit
+    test:
+      run: pnpm exec vitest run --reporter=verbose
