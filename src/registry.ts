@@ -58,8 +58,12 @@ export async function discoverSpecs(
         continue;
       }
 
-      // Detect version
-      const versionResult = await detectVersion(binaryResult.value);
+      // Detect version — first try default detection, then fall back to
+      // patterns from candidate spec files (handles freeform versions like "dev")
+      let versionResult = await detectVersion(binaryResult.value);
+      if (!versionResult.ok) {
+        versionResult = await detectVersionFromSpecs(binaryResult.value, toolDir);
+      }
       if (!versionResult.ok) {
         errors.push({
           specPath: toolDir,
@@ -188,6 +192,39 @@ export function specToMcpTools(spec: CliToolSpec): ToolDefinition[] {
 function mapType(t: 'string' | 'number' | 'boolean' | 'path'): string {
   if (t === 'path') return 'string';
   return t;
+}
+
+/**
+ * Fallback version detection: reads spec files from the tool directory and
+ * retries detectVersion with each spec's versionDetection config. Handles
+ * tools with freeform versions (e.g. "dev") that don't match the default pattern.
+ */
+async function detectVersionFromSpecs(
+  binaryPath: string,
+  toolDir: string
+): Promise<import('./types.js').Result<string, import('./types.js').VersionDetectError>> {
+  let files: string[];
+  try {
+    files = (await fs.readdir(toolDir)).filter((f) => f.endsWith('.json'));
+  } catch {
+    return { ok: false, error: { binary: binaryPath, attemptedCommands: [], message: 'Could not read tool directory' } };
+  }
+
+  for (const file of files) {
+    try {
+      const raw = await fs.readFile(join(toolDir, file), 'utf-8');
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const vd = parsed['versionDetection'] as { command?: string; pattern?: string } | undefined;
+      if (vd?.command && vd?.pattern) {
+        const result = await detectVersion(binaryPath, { command: vd.command, pattern: vd.pattern });
+        if (result.ok) return result;
+      }
+    } catch {
+      // try next
+    }
+  }
+
+  return { ok: false, error: { binary: binaryPath, attemptedCommands: [], message: 'No spec versionDetection pattern matched' } };
 }
 
 /**
