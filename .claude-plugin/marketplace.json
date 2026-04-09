@@ -1,0 +1,17 @@
+{
+  "name": "cli-bridge",
+  "owner": {
+    "name": "walkindude"
+  },
+  "plugins": [
+    {
+      "name": "cli-bridge",
+      "source": ".",
+      "description": "Promotes CLI tools to first-class MCP tools via declarative JSON specs",
+      "version": "0.1.0"
+    }
+  ],
+  "metadata": {
+    "description": "CLI bridge plugin marketplace"
+  }
+}

@@ -1,67 +1,87 @@
 # cli-bridge
 
-An MCP server (stdio) that promotes CLI tools to first-class MCP tools via declarative JSON specs.
+A Claude Code plugin that promotes CLI tools to first-class MCP tools via declarative JSON specs.
 
-## What is cli-bridge?
+## Why
 
-cli-bridge lets you expose any command-line tool as an MCP (Model Context Protocol) tool. You describe the tool's interface in a JSON spec file, and cli-bridge automatically generates the corresponding MCP tool definition that Claude can call.
+Claude Code reaches for `grep` and `Bash` by default. CLAUDE.md instructions degrade under context pressure. Skills don't reliably trigger. MCP tools do — they participate in tool selection at the protocol level, before context pressure applies.
 
-Features:
-- Declarative JSON specs — describe flags, arguments, output format, and trigger phrases
-- Priority-based spec discovery — project specs override user specs, which override bundled specs
-- Version-aware — specs are matched to the installed binary version (exact or best-match)
-- Multiple output parsers — JSON, JSONL, CSV, TSV, and plain text
-- No shell — uses `execFile` only, no shell injection possible
-- TypeScript strict mode — no `any`, no implicit casts
+cli-bridge lets you describe any CLI tool's interface in a JSON spec. The plugin exposes each subcommand as a real MCP tool that Claude (and Codex) can call directly.
 
-## Installation
+## Install
 
-```bash
-# Clone the repo
-git clone https://github.com/yourusername/cli-bridge
-cd cli-bridge
+### From the marketplace (Claude Code)
 
-# Install dependencies (requires pnpm + Node 22, managed via mise)
-mise install
-pnpm install
-
-# Build
-pnpm run build
+```
+/plugin marketplace add walkindude/cli-bridge
+/plugin install cli-bridge@cli-bridge
 ```
 
-## Usage
+### From npm
 
-### Configure as an MCP server
+```bash
+npm install -g cli-bridge
+```
 
-Add to your `.mcp.json`:
+Then add to your project's `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "cli-bridge": {
       "type": "stdio",
-      "command": "node",
-      "args": ["/path/to/cli-bridge/dist/server.js"]
+      "command": "cli-bridge"
     }
   }
 }
 ```
 
-### Register a CLI tool
+### For Codex
 
-Use the `/cli-bridge:register` skill in Claude Code to generate a spec:
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.cli-bridge]
+command = "cli-bridge"
+```
+
+### From source
+
+```bash
+git clone https://github.com/walkindude/cli-bridge
+cd cli-bridge
+pnpm install && pnpm run build
+npm link
+```
+
+## Register a tool
+
+Use the built-in skill to auto-generate a spec from any CLI binary:
 
 ```
-/cli-bridge:register git
+/cli-bridge:register kubectl
 ```
 
-This will create `~/.config/cli-bridge/specs/git/<version>.json`.
+This inspects `--help` output, detects subcommands, and writes a spec to `~/.config/cli-bridge/specs/kubectl/<version>.json`.
 
-### Write a spec manually
+Or write specs by hand — see [Spec Format](#spec-format) below.
 
-Specs live at `~/.config/cli-bridge/specs/<tool-name>/<version>.json`.
+## How it works
 
-Example spec for `jq`:
+1. On startup, the MCP server discovers specs from three locations (highest priority first):
+   - `.cli-bridge/specs/` in the current project (team-shared)
+   - `~/.config/cli-bridge/specs/` (user-local, `XDG_CONFIG_HOME` respected)
+   - `specs/` in the plugin directory (bundled, empty by default)
+
+2. For each spec, it resolves the binary via `which`, detects the installed version, and picks the best-matching spec file.
+
+3. Each command in the spec becomes an MCP tool named `{tool}_{command}` (e.g. `kubectl_get`, `gosymdb_callers`).
+
+4. When Claude calls a tool, cli-bridge runs the binary via `execFile` (no shell), parses stdout according to the spec's output format, and returns structured MCP content.
+
+## Spec format
+
+Specs live at `~/.config/cli-bridge/specs/<tool>/<version>.json`.
 
 ```json
 {
@@ -75,8 +95,8 @@ Example spec for `jq`:
     "pattern": "jq-(\\d+\\.\\d+[.\\d+]*)"
   },
   "triggers": {
-    "positive": ["process JSON", "filter JSON output", "extract from JSON", "transform JSON data"],
-    "negative": ["do not use jq for non-JSON formats", "avoid jq for CSV or XML"]
+    "positive": ["BEFORE processing or filtering JSON data"],
+    "negative": ["Do NOT use for non-JSON formats"]
   },
   "commands": [
     {
@@ -87,8 +107,7 @@ Example spec for `jq`:
         { "name": "filter", "description": "jq filter expression", "required": true, "type": "string" }
       ],
       "flags": [
-        { "name": "raw-output", "short": "r", "description": "Output raw strings", "required": false, "type": "boolean" },
-        { "name": "compact-output", "short": "c", "description": "Compact output", "required": false, "type": "boolean" }
+        { "name": "raw-output", "short": "r", "description": "Output raw strings", "required": false, "type": "boolean" }
       ],
       "output": { "format": "json" }
     }
@@ -96,85 +115,49 @@ Example spec for `jq`:
 }
 ```
 
-### Project-level specs
+Key fields:
 
-Teams can place specs in `.cli-bridge/specs/` in their repo. These take priority over user-level specs.
+| Field | Purpose |
+|-------|---------|
+| `triggers.positive` | When the model SHOULD consider this tool |
+| `triggers.negative` | When the model should NOT use this tool |
+| `output.format` | How to parse stdout: `json`, `jsonl`, `text`, `csv`, `tsv` |
+| `versionDetection` | How to detect the installed binary version on startup |
+| `globalFlags` | Flags available on every command |
 
-## Spec Storage Priority
-
-1. `.cli-bridge/specs/` in the current working directory (project-level)
-2. `~/.config/cli-bridge/specs/` (user-level, respects `XDG_CONFIG_HOME`)
-3. `<plugin-dir>/specs/` (bundled — empty by default)
+Teams can share specs by checking them into `.cli-bridge/specs/` in their repo. Project-level specs take priority over user-level specs.
 
 ## Development
 
 ```bash
-pnpm run build        # compile TypeScript
-pnpm test             # run all tests (vitest)
-pnpm run test:watch   # watch mode
-pnpm run test:coverage # coverage report (target: 90%+)
-pnpm run typecheck    # tsc --noEmit
-pnpm run lint         # eslint
+pnpm run build          # compile + bundle
+pnpm test               # vitest (180 tests)
+pnpm run test:coverage  # coverage report (target: 90%+)
+pnpm run lint           # eslint (strict + prettier)
+pnpm run typecheck      # tsc --noEmit
+pnpm run format         # prettier --write
+pnpm run format:check   # prettier --check (CI)
 ```
-
-## End-to-End Verification
-
-To verify a working installation:
-
-1. Build the project:
-   ```bash
-   pnpm run build
-   ```
-
-2. Create a test spec for `node`:
-   ```bash
-   mkdir -p ~/.config/cli-bridge/specs/node
-   cat > ~/.config/cli-bridge/specs/node/$(node --version | sed 's/v//').json <<'EOF'
-   {
-     "name": "node",
-     "specVersion": "1",
-     "binary": "node",
-     "binaryVersion": "22.0.0",
-     "description": "Node.js JavaScript runtime",
-     "versionDetection": { "command": "--version", "pattern": "v(\\d+\\.\\d+\\.\\d+)" },
-     "triggers": {
-       "positive": ["run JavaScript", "execute node script"],
-       "negative": ["do not use node for Python scripts"]
-     },
-     "commands": [{
-       "name": "run",
-       "description": "Evaluate JavaScript code",
-       "usage": "node --eval <code>",
-       "flags": [{ "name": "eval", "short": "e", "description": "Evaluate script", "required": true, "type": "string" }],
-       "output": { "format": "text" }
-     }]
-   }
-   EOF
-   ```
-
-3. Start the MCP server and verify it loads the spec:
-   ```bash
-   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' | node dist/server.js 2>&1
-   ```
-
-4. Run the full test suite:
-   ```bash
-   pnpm test
-   ```
 
 ## Architecture
 
-| File | Purpose |
-|------|---------|
-| `src/server.ts` | MCP server entry point. Loads specs, registers tools, handles calls |
-| `src/registry.ts` | Spec discovery across directories. Converts specs to MCP tool definitions |
-| `src/executor.ts` | Runs CLI commands via `execFile`. No shell. Timeout enforcement |
-| `src/schema.ts` | `CliToolSpec` types + JSON Schema + `validateSpec()` function |
-| `src/parser.ts` | Parses CLI stdout (json/text/csv/tsv/jsonl) into MCP content blocks |
-| `src/resolver.ts` | Binary path resolution (`which`), version detection, semver matching |
+| Module | Purpose |
+|--------|---------|
+| `src/server.ts` | MCP stdio server. Loads specs, registers tools, handles calls |
+| `src/registry.ts` | Spec discovery, version resolution, MCP tool generation |
+| `src/executor.ts` | Runs CLI via `execFile`. No shell. Timeout enforcement |
+| `src/schema.ts` | `CliToolSpec` types + JSON Schema + `validateSpec()` |
+| `src/parser.ts` | Parses stdout (json/text/csv/tsv/jsonl) into MCP content |
+| `src/resolver.ts` | Binary resolution (`which`), version detection, semver matching |
 | `src/paths.ts` | Spec directory resolution with XDG support |
-| `src/types.ts` | `Result<T,E>`, `ToolResult`, error types |
+| `src/types.ts` | `Result<T,E>`, error types |
+
+## Versioning
+
+Releases are cut via git tags (`v0.1.0`, `v0.2.0`, etc.). Pushing a tag triggers a GitHub Release with auto-generated release notes.
+
+Plugin updates: bump the `version` field in `.claude-plugin/plugin.json` and `package.json`. Users on the marketplace will pick up the new version on next session start (if auto-update is enabled) or via `/plugin update`.
 
 ## License
 
-Apache-2.0 — see [LICENSE](./LICENSE)
+Apache-2.0

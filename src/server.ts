@@ -13,7 +13,7 @@ import { dirname } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const specDirs = await getSpecDirectories(process.cwd(), __dirname);
 
   const { specs, errors } = await discoverSpecs(specDirs);
@@ -22,12 +22,24 @@ async function main(): Promise<void> {
     console.error(`[cli-bridge] Failed to load spec: ${error.specPath}: ${error.message}`);
   }
 
-  console.error(`[cli-bridge] Loaded ${specs.length} tool specs from ${specDirs.length} directories`);
+  console.error(
+    `[cli-bridge] Loaded ${specs.length} tool specs from ${specDirs.length} directories`,
+  );
 
-  const server = new McpServer({
-    name: 'cli-bridge',
-    version: '0.1.0',
-  });
+  const toolSummary = specs
+    .flatMap((s) => s.spec.commands.map((c) => `${s.spec.name}_${c.name}`))
+    .join(', ');
+
+  const server = new McpServer(
+    { name: 'cli-bridge', version: '0.1.0' },
+    {
+      instructions: `You have access to CLI tools registered via cli-bridge: ${toolSummary || 'none loaded'}.
+
+ALWAYS prefer these MCP tools over Bash, Read, Grep, or Glob when the task falls within a registered tool's domain. These tools are purpose-built for their domain and return structured output — they are faster and more reliable than shelling out.
+
+Each tool name is {binary}_{subcommand}. Check the tool descriptions for trigger phrases that tell you exactly when to use each one.`,
+    },
+  );
 
   // Build a map from tool name → { loadedSpec, command }
   const toolMap = new Map<string, { loadedSpec: LoadedSpec; command: CommandDef }>();
@@ -42,11 +54,11 @@ async function main(): Promise<void> {
       toolMap.set(toolDef.name, { loadedSpec, command });
 
       // Build zod schema from inputSchema
-      const zodProps: Record<string, z.ZodTypeAny> = {};
+      const zodProps: Record<string, z.ZodType> = {};
       for (const [propName, propDef] of Object.entries(toolDef.inputSchema.properties)) {
         const def = propDef as Record<string, unknown>;
         const isRequired = toolDef.inputSchema.required.includes(propName);
-        let zodType: z.ZodTypeAny;
+        let zodType: z.ZodType;
         switch (def['type']) {
           case 'number':
             zodType = z.number();
@@ -78,7 +90,12 @@ async function main(): Promise<void> {
           const entry = toolMap.get(toolDef.name);
           if (!entry) {
             return {
-              content: [{ type: 'text' as const, text: `Tool ${toolDef.name} not found` }],
+              content: [
+                {
+                  type: 'text' as const,
+                  text: `Tool ${toolDef.name} not found`,
+                },
+              ],
               isError: true,
             };
           }
@@ -91,7 +108,10 @@ async function main(): Promise<void> {
               return {
                 content: [
                   { type: 'text' as const, text: content.text },
-                  { type: 'text' as const, text: `[exit code: ${result.exitCode}]\n${result.stderr}` },
+                  {
+                    type: 'text' as const,
+                    text: `[exit code: ${result.exitCode}]\n${result.stderr}`,
+                  },
                 ],
                 isError: true,
               };
@@ -105,7 +125,7 @@ async function main(): Promise<void> {
               isError: true,
             };
           }
-        }
+        },
       );
     }
   }
@@ -114,7 +134,11 @@ async function main(): Promise<void> {
   await server.connect(transport);
 }
 
-main().catch((e: unknown) => {
-  console.error('[cli-bridge] Fatal error:', e);
-  process.exit(1);
-});
+// Only run when executed directly (not when imported for testing)
+const isDirectRun = process.argv[1]?.includes('server');
+if (isDirectRun) {
+  main().catch((e: unknown) => {
+    console.error('[cli-bridge] Fatal error:', e);
+    process.exit(1);
+  });
+}

@@ -32,7 +32,7 @@ function parseJson(stdout: string, jsonPath?: string): ToolContent {
   try {
     const parsed: unknown = JSON.parse(stdout);
     const extracted = jsonPath ? extractPath(parsed, jsonPath) : parsed;
-    const text = JSON.stringify(extracted, null, 2) ?? 'null';
+    const text = extracted === undefined ? 'null' : JSON.stringify(extracted, null, 2);
     return { type: 'text', text };
   } catch {
     return { type: 'text', text: `[parse error: invalid JSON]\n${stdout}` };
@@ -52,7 +52,10 @@ function parseJsonl(stdout: string): ToolContent {
     }
   }
   if (hasError) {
-    return { type: 'text', text: `[parse error: some lines were not valid JSON]\n${stdout}` };
+    return {
+      type: 'text',
+      text: `[parse error: some lines were not valid JSON]\n${stdout}`,
+    };
   }
   return { type: 'text', text: JSON.stringify(results, null, 2) };
 }
@@ -62,7 +65,10 @@ function parseText(stdout: string, successPattern?: string): ToolContent {
     try {
       const re = new RegExp(successPattern);
       if (!re.test(stdout)) {
-        return { type: 'text', text: `[error: output did not match success pattern]\n${stdout}` };
+        return {
+          type: 'text',
+          text: `[error: output did not match success pattern]\n${stdout}`,
+        };
       }
     } catch {
       // Invalid pattern — treat as no pattern
@@ -89,7 +95,10 @@ function parseDsv(stdout: string, delimiter: string): ToolContent {
     }
     return { type: 'text', text: JSON.stringify(rows, null, 2) };
   } catch {
-    return { type: 'text', text: `[parse error: could not parse ${delimiter === '\t' ? 'TSV' : 'CSV'}]\n${stdout}` };
+    return {
+      type: 'text',
+      text: `[parse error: could not parse ${delimiter === '\t' ? 'TSV' : 'CSV'}]\n${stdout}`,
+    };
   }
 }
 

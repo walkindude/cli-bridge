@@ -42,7 +42,14 @@ describe('executeTool', () => {
     // For "run" command, no command arg is prepended
     const runCommand = makeCommand({
       name: 'run',
-      args: [{ name: 'script', description: 'Script', required: true, type: 'string' }],
+      args: [
+        {
+          name: 'script',
+          description: 'Script',
+          required: true,
+          type: 'string',
+        },
+      ],
       output: { format: 'text' },
     });
 
@@ -50,7 +57,7 @@ describe('executeTool', () => {
     const result = await executeTool(
       makeLoadedSpec({ resolvedBinaryPath: '/bin/echo' }),
       runCommand,
-      { script: 'hello' }
+      { script: 'hello' },
     );
     expect(result.stdout.trim()).toBe('hello');
     expect(result.exitCode).toBe(0);
@@ -69,7 +76,7 @@ describe('executeTool', () => {
     const result = await executeTool(
       makeLoadedSpec({ resolvedBinaryPath: '/usr/bin/false' }),
       command,
-      {}
+      {},
     );
     expect(result.exitCode).not.toBe(0);
   });
@@ -79,17 +86,26 @@ describe('executeTool', () => {
     const command = makeCommand({
       name: 'run',
       flags: [
-        { name: 'verbose', description: 'Verbose', required: false, type: 'boolean' },
-        { name: 'format', description: 'Format', required: false, type: 'string' },
+        {
+          name: 'verbose',
+          description: 'Verbose',
+          required: false,
+          type: 'boolean',
+        },
+        {
+          name: 'format',
+          description: 'Format',
+          required: false,
+          type: 'string',
+        },
       ],
       output: { format: 'text' },
     });
     // We test using /bin/echo to capture args
-    const result = await executeTool(
-      makeLoadedSpec({ resolvedBinaryPath: '/bin/echo' }),
-      command,
-      { verbose: true, format: 'json' }
-    );
+    const result = await executeTool(makeLoadedSpec({ resolvedBinaryPath: '/bin/echo' }), command, {
+      verbose: true,
+      format: 'json',
+    });
     expect(result.stdout).toContain('--verbose');
     expect(result.stdout).toContain('--format');
     expect(result.stdout).toContain('json');
@@ -100,15 +116,18 @@ describe('executeTool', () => {
     const command = makeCommand({
       name: 'run',
       flags: [
-        { name: 'verbose', description: 'Verbose', required: false, type: 'boolean' },
+        {
+          name: 'verbose',
+          description: 'Verbose',
+          required: false,
+          type: 'boolean',
+        },
       ],
       output: { format: 'text' },
     });
-    const result = await executeTool(
-      makeLoadedSpec({ resolvedBinaryPath: '/bin/echo' }),
-      command,
-      { verbose: false }
-    );
+    const result = await executeTool(makeLoadedSpec({ resolvedBinaryPath: '/bin/echo' }), command, {
+      verbose: false,
+    });
     expect(result.stdout).not.toContain('--verbose');
   });
 
@@ -125,13 +144,20 @@ describe('executeTool', () => {
         versionDetection: { command: '--version', pattern: '(\\d+)' },
         triggers: { positive: ['use'], negative: ['avoid'] },
         globalFlags: [
-          { name: 'config', description: 'Config file', required: false, type: 'string' },
+          {
+            name: 'config',
+            description: 'Config file',
+            required: false,
+            type: 'string',
+          },
         ],
         commands: [],
       },
     });
     const command = makeCommand({ name: 'run', output: { format: 'text' } });
-    const result = await executeTool(loadedSpec, command, { config: '/etc/mytool.conf' });
+    const result = await executeTool(loadedSpec, command, {
+      config: '/etc/mytool.conf',
+    });
     expect(result.stdout).toContain('--config');
     expect(result.stdout).toContain('/etc/mytool.conf');
   });
@@ -142,7 +168,7 @@ describe('executeTool', () => {
     const result = await executeTool(
       makeLoadedSpec({ resolvedBinaryPath: '/bin/echo' }),
       command,
-      {}
+      {},
     );
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
@@ -158,7 +184,7 @@ describe('executeTool', () => {
     const result = await executeTool(
       makeLoadedSpec({ resolvedBinaryPath: '/bin/echo' }),
       command,
-      {}
+      {},
     );
     expect(result.exitCode).toBe(0);
   });

@@ -24,11 +24,9 @@ export async function resolveBinary(binary: string): Promise<Result<string, Reso
  */
 export async function detectVersion(
   binaryPath: string,
-  detection?: { command: string; pattern: string }
+  detection?: { command: string; pattern: string },
 ): Promise<Result<string, VersionDetectError>> {
-  const commands = detection
-    ? [detection.command]
-    : ['--version', 'version', '-v', '-V'];
+  const commands = detection ? [detection.command] : ['--version', 'version', '-v', '-V'];
   const pattern = detection?.pattern ?? 'v?(\\d+\\.\\d+[.\\d+]*)';
   const attemptedCommands: string[] = [];
 
@@ -36,14 +34,14 @@ export async function detectVersion(
     const args = cmd.split(' ').filter(Boolean);
     attemptedCommands.push(cmd);
     try {
-      const { stdout, stderr } = await execFileAsync(binaryPath, args, { timeout: 5000 }).catch(
-        async (e: unknown) => {
-          if (e && typeof e === 'object' && 'stdout' in e) {
-            return e as { stdout: string; stderr: string };
-          }
-          throw e;
+      const { stdout, stderr } = await execFileAsync(binaryPath, args, {
+        timeout: 5000,
+      }).catch((e: unknown) => {
+        if (e && typeof e === 'object' && 'stdout' in e) {
+          return e as { stdout: string; stderr: string };
         }
-      );
+        throw e;
+      });
       const output = stdout + stderr;
       const regex = new RegExp(pattern);
       const match = regex.exec(output);
@@ -67,18 +65,24 @@ export async function detectVersion(
  */
 export async function resolveSpecVersion(
   toolDir: string,
-  installedVersion: string
+  installedVersion: string,
 ): Promise<Result<{ specPath: string; exactMatch: boolean }, ResolveError>> {
   let entries: string[];
   try {
     const dirents = await fs.readdir(toolDir);
     entries = dirents.filter((f) => f.endsWith('.json'));
   } catch {
-    return err({ binary: toolDir, message: `Could not read directory: ${toolDir}` });
+    return err({
+      binary: toolDir,
+      message: `Could not read directory: ${toolDir}`,
+    });
   }
 
   if (entries.length === 0) {
-    return err({ binary: toolDir, message: `No spec files found in ${toolDir}` });
+    return err({
+      binary: toolDir,
+      message: `No spec files found in ${toolDir}`,
+    });
   }
 
   const versions = entries.map((f) => f.replace(/\.json$/, ''));
@@ -95,7 +99,10 @@ export async function resolveSpecVersion(
   const sorted = versions.sort((a, b) => compareSemver(b, a));
   const best = sorted[0];
   if (!best) {
-    return err({ binary: toolDir, message: `No valid spec versions in ${toolDir}` });
+    return err({
+      binary: toolDir,
+      message: `No valid spec versions in ${toolDir}`,
+    });
   }
   return ok({
     specPath: join(toolDir, `${best}.json`),

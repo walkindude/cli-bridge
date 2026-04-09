@@ -3,6 +3,10 @@
   "description": "Promotes CLI tools to first-class MCP tools via declarative JSON specs",
   "version": "0.1.0",
   "author": {
-    "name": "Steve"
-  }
+    "name": "walkindude"
+  },
+  "homepage": "https://github.com/walkindude/cli-bridge",
+  "repository": "https://github.com/walkindude/cli-bridge",
+  "license": "Apache-2.0",
+  "keywords": ["cli", "mcp", "tools", "bridge", "stdio"]
 }
