@@ -36,7 +36,10 @@ describe('parseOutput', () => {
 
     it('returns "null" for nonexistent jsonPath', () => {
       const stdout = '{"items": [1, 2, 3]}';
-      const result = parseOutput(stdout, { format: 'json', jsonPath: 'missing.nested' });
+      const result = parseOutput(stdout, {
+        format: 'json',
+        jsonPath: 'missing.nested',
+      });
       expect(result.type).toBe('text');
       // When path doesn't exist, extracted is undefined; we return 'null' as fallback
       expect(result.text).toBe('null');
@@ -88,26 +91,38 @@ describe('parseOutput', () => {
 
     it('returns text with successPattern match', () => {
       const stdout = 'Operation done successfully';
-      const result = parseOutput(stdout, { format: 'text', successPattern: 'done' });
+      const result = parseOutput(stdout, {
+        format: 'text',
+        successPattern: 'done',
+      });
       expect(result.text).toBe(stdout);
     });
 
     it('returns error when successPattern does not match', () => {
       const stdout = 'Operation failed';
-      const result = parseOutput(stdout, { format: 'text', successPattern: 'done' });
+      const result = parseOutput(stdout, {
+        format: 'text',
+        successPattern: 'done',
+      });
       expect(result.text).toContain('[error: output did not match success pattern]');
     });
 
     it('ignores invalid successPattern regex', () => {
       const stdout = 'some output';
-      const result = parseOutput(stdout, { format: 'text', successPattern: '[invalid(' });
+      const result = parseOutput(stdout, {
+        format: 'text',
+        successPattern: '[invalid(',
+      });
       // Should fall through and return text as-is
       expect(result.text).toBe('some output');
     });
 
     it('parses the text-output.txt fixture', () => {
       const stdout = fixture('text-output.txt');
-      const result = parseOutput(stdout, { format: 'text', successPattern: 'done' });
+      const result = parseOutput(stdout, {
+        format: 'text',
+        successPattern: 'done',
+      });
       expect(result.text).toBe(stdout);
     });
   });
@@ -155,10 +170,16 @@ describe('parseOutput', () => {
     const formats: OutputDef['format'][] = ['json', 'text', 'csv', 'tsv', 'jsonl'];
     for (const format of formats) {
       it(`${format} returns type: 'text'`, () => {
-        const stdout = format === 'json' ? '{}' :
-          format === 'jsonl' ? '{}' :
-          format === 'csv' ? 'a,b\n1,2' :
-          format === 'tsv' ? 'a\tb\n1\t2' : 'output';
+        const stdout =
+          format === 'json'
+            ? '{}'
+            : format === 'jsonl'
+              ? '{}'
+              : format === 'csv'
+                ? 'a,b\n1,2'
+                : format === 'tsv'
+                  ? 'a\tb\n1\t2'
+                  : 'output';
         const result = parseOutput(stdout, { format });
         expect(result.type).toBe('text');
       });

@@ -60,7 +60,16 @@ export interface CliToolSpec {
 export const CLI_TOOL_SPEC_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   type: 'object',
-  required: ['name', 'specVersion', 'binary', 'binaryVersion', 'description', 'versionDetection', 'triggers', 'commands'],
+  required: [
+    'name',
+    'specVersion',
+    'binary',
+    'binaryVersion',
+    'description',
+    'versionDetection',
+    'triggers',
+    'commands',
+  ],
   properties: {
     name: { type: 'string', pattern: '^[a-z][a-z0-9-]*$' },
     specVersion: { type: 'string', const: '1' },
@@ -88,8 +97,16 @@ export const CLI_TOOL_SPEC_SCHEMA = {
       type: 'object',
       required: ['positive', 'negative'],
       properties: {
-        positive: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } },
-        negative: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } },
+        positive: {
+          type: 'array',
+          minItems: 1,
+          items: { type: 'string', minLength: 1 },
+        },
+        negative: {
+          type: 'array',
+          minItems: 1,
+          items: { type: 'string', minLength: 1 },
+        },
       },
     },
     globalFlags: { type: 'array', items: { $ref: '#/definitions/FlagDef' } },
@@ -140,7 +157,10 @@ export const CLI_TOOL_SPEC_SCHEMA = {
       type: 'object',
       required: ['format'],
       properties: {
-        format: { type: 'string', enum: ['json', 'text', 'csv', 'tsv', 'jsonl'] },
+        format: {
+          type: 'string',
+          enum: ['json', 'text', 'csv', 'tsv', 'jsonl'],
+        },
         jsonPath: { type: 'string' },
         successPattern: { type: 'string' },
       },
@@ -163,7 +183,10 @@ export function validateSpec(input: unknown): Result<CliToolSpec, ValidationErro
 
   // name
   if (typeof obj['name'] !== 'string' || !/^[a-z][a-z0-9-]*$/.test(obj['name'])) {
-    errors.push({ path: 'name', message: 'Must be a lowercase string matching /^[a-z][a-z0-9-]*$/' });
+    errors.push({
+      path: 'name',
+      message: 'Must be a lowercase string matching /^[a-z][a-z0-9-]*$/',
+    });
   }
 
   // specVersion
@@ -178,14 +201,20 @@ export function validateSpec(input: unknown): Result<CliToolSpec, ValidationErro
 
   // binaryVersion
   if (typeof obj['binaryVersion'] !== 'string' || obj['binaryVersion'].length === 0) {
-    errors.push({ path: 'binaryVersion', message: 'Must be a non-empty string' });
+    errors.push({
+      path: 'binaryVersion',
+      message: 'Must be a non-empty string',
+    });
   }
 
   // description
   if (typeof obj['description'] !== 'string' || obj['description'].length === 0) {
     errors.push({ path: 'description', message: 'Must be a non-empty string' });
   } else if (obj['description'].length > 500) {
-    errors.push({ path: 'description', message: 'Must not exceed 500 characters' });
+    errors.push({
+      path: 'description',
+      message: 'Must not exceed 500 characters',
+    });
   }
 
   // versionDetection
@@ -194,19 +223,31 @@ export function validateSpec(input: unknown): Result<CliToolSpec, ValidationErro
   } else {
     const vd = obj['versionDetection'] as Record<string, unknown>;
     if (typeof vd['command'] !== 'string' || vd['command'].length === 0) {
-      errors.push({ path: 'versionDetection.command', message: 'Must be a non-empty string' });
+      errors.push({
+        path: 'versionDetection.command',
+        message: 'Must be a non-empty string',
+      });
     }
     if (typeof vd['pattern'] !== 'string' || vd['pattern'].length === 0) {
-      errors.push({ path: 'versionDetection.pattern', message: 'Must be a non-empty string' });
+      errors.push({
+        path: 'versionDetection.pattern',
+        message: 'Must be a non-empty string',
+      });
     } else {
       try {
-        const re = new RegExp(vd['pattern'] as string);
+        const re = new RegExp(vd['pattern']);
         // Check for capture group
         if (!re.source.includes('(')) {
-          errors.push({ path: 'versionDetection.pattern', message: 'Pattern must contain at least one capture group' });
+          errors.push({
+            path: 'versionDetection.pattern',
+            message: 'Pattern must contain at least one capture group',
+          });
         }
       } catch {
-        errors.push({ path: 'versionDetection.pattern', message: 'Must be a valid regular expression' });
+        errors.push({
+          path: 'versionDetection.pattern',
+          message: 'Must be a valid regular expression',
+        });
       }
     }
   }
@@ -218,15 +259,27 @@ export function validateSpec(input: unknown): Result<CliToolSpec, ValidationErro
     } else {
       const reg = obj['registration'] as Record<string, unknown>;
       if (typeof reg['resolvedPath'] !== 'string' || reg['resolvedPath'].length === 0) {
-        errors.push({ path: 'registration.resolvedPath', message: 'Must be a non-empty string' });
+        errors.push({
+          path: 'registration.resolvedPath',
+          message: 'Must be a non-empty string',
+        });
       }
       if (typeof reg['registeredAt'] !== 'string' || reg['registeredAt'].length === 0) {
-        errors.push({ path: 'registration.registeredAt', message: 'Must be a non-empty string' });
+        errors.push({
+          path: 'registration.registeredAt',
+          message: 'Must be a non-empty string',
+        });
       }
       if (typeof reg['helpOutput'] !== 'string') {
-        errors.push({ path: 'registration.helpOutput', message: 'Must be a string' });
+        errors.push({
+          path: 'registration.helpOutput',
+          message: 'Must be a string',
+        });
       } else if (reg['helpOutput'].length > 2000) {
-        errors.push({ path: 'registration.helpOutput', message: 'Must not exceed 2000 characters' });
+        errors.push({
+          path: 'registration.helpOutput',
+          message: 'Must not exceed 2000 characters',
+        });
       }
     }
   }
@@ -237,20 +290,32 @@ export function validateSpec(input: unknown): Result<CliToolSpec, ValidationErro
   } else {
     const triggers = obj['triggers'] as Record<string, unknown>;
     if (!Array.isArray(triggers['positive']) || triggers['positive'].length === 0) {
-      errors.push({ path: 'triggers.positive', message: 'Must be an array with at least 1 element' });
+      errors.push({
+        path: 'triggers.positive',
+        message: 'Must be an array with at least 1 element',
+      });
     } else {
       triggers['positive'].forEach((item: unknown, i: number) => {
         if (typeof item !== 'string' || item.length === 0) {
-          errors.push({ path: `triggers.positive[${i}]`, message: 'Must be a non-empty string' });
+          errors.push({
+            path: `triggers.positive[${i}]`,
+            message: 'Must be a non-empty string',
+          });
         }
       });
     }
     if (!Array.isArray(triggers['negative']) || triggers['negative'].length === 0) {
-      errors.push({ path: 'triggers.negative', message: 'Must be an array with at least 1 element' });
+      errors.push({
+        path: 'triggers.negative',
+        message: 'Must be an array with at least 1 element',
+      });
     } else {
       triggers['negative'].forEach((item: unknown, i: number) => {
         if (typeof item !== 'string' || item.length === 0) {
-          errors.push({ path: `triggers.negative[${i}]`, message: 'Must be a non-empty string' });
+          errors.push({
+            path: `triggers.negative[${i}]`,
+            message: 'Must be a non-empty string',
+          });
         }
       });
     }
@@ -269,7 +334,10 @@ export function validateSpec(input: unknown): Result<CliToolSpec, ValidationErro
 
   // commands
   if (!Array.isArray(obj['commands']) || obj['commands'].length === 0) {
-    errors.push({ path: 'commands', message: 'Must be an array with at least 1 element' });
+    errors.push({
+      path: 'commands',
+      message: 'Must be an array with at least 1 element',
+    });
   } else {
     obj['commands'].forEach((cmd: unknown, i: number) => {
       validateCommandDef(cmd, `commands[${i}]`, errors);
@@ -290,23 +358,38 @@ function validateFlagDef(input: unknown, path: string, errors: ValidationError[]
   }
   const flag = input as Record<string, unknown>;
   if (typeof flag['name'] !== 'string' || !/^[a-z][a-z0-9-]*$/.test(flag['name'])) {
-    errors.push({ path: `${path}.name`, message: 'Must match /^[a-z][a-z0-9-]*$/' });
+    errors.push({
+      path: `${path}.name`,
+      message: 'Must match /^[a-z][a-z0-9-]*$/',
+    });
   }
   if ('short' in flag && flag['short'] !== undefined) {
     if (typeof flag['short'] !== 'string' || !/^[a-z]$/.test(flag['short'])) {
-      errors.push({ path: `${path}.short`, message: 'Must be a single lowercase letter' });
+      errors.push({
+        path: `${path}.short`,
+        message: 'Must be a single lowercase letter',
+      });
     }
   }
   if (typeof flag['description'] !== 'string' || flag['description'].length === 0) {
-    errors.push({ path: `${path}.description`, message: 'Must be a non-empty string' });
+    errors.push({
+      path: `${path}.description`,
+      message: 'Must be a non-empty string',
+    });
   } else if (flag['description'].length > 500) {
-    errors.push({ path: `${path}.description`, message: 'Must not exceed 500 characters' });
+    errors.push({
+      path: `${path}.description`,
+      message: 'Must not exceed 500 characters',
+    });
   }
   if (typeof flag['required'] !== 'boolean') {
     errors.push({ path: `${path}.required`, message: 'Must be a boolean' });
   }
   if (!['string', 'number', 'boolean', 'path'].includes(flag['type'] as string)) {
-    errors.push({ path: `${path}.type`, message: 'Must be one of: string, number, boolean, path' });
+    errors.push({
+      path: `${path}.type`,
+      message: 'Must be one of: string, number, boolean, path',
+    });
   }
 }
 
@@ -317,18 +400,30 @@ function validateArgDef(input: unknown, path: string, errors: ValidationError[])
   }
   const arg = input as Record<string, unknown>;
   if (typeof arg['name'] !== 'string' || arg['name'].length === 0) {
-    errors.push({ path: `${path}.name`, message: 'Must be a non-empty string' });
+    errors.push({
+      path: `${path}.name`,
+      message: 'Must be a non-empty string',
+    });
   }
   if (typeof arg['description'] !== 'string' || arg['description'].length === 0) {
-    errors.push({ path: `${path}.description`, message: 'Must be a non-empty string' });
+    errors.push({
+      path: `${path}.description`,
+      message: 'Must be a non-empty string',
+    });
   } else if (arg['description'].length > 500) {
-    errors.push({ path: `${path}.description`, message: 'Must not exceed 500 characters' });
+    errors.push({
+      path: `${path}.description`,
+      message: 'Must not exceed 500 characters',
+    });
   }
   if (typeof arg['required'] !== 'boolean') {
     errors.push({ path: `${path}.required`, message: 'Must be a boolean' });
   }
   if (!['string', 'number', 'boolean', 'path'].includes(arg['type'] as string)) {
-    errors.push({ path: `${path}.type`, message: 'Must be one of: string, number, boolean, path' });
+    errors.push({
+      path: `${path}.type`,
+      message: 'Must be one of: string, number, boolean, path',
+    });
   }
 }
 
@@ -339,7 +434,10 @@ function validateOutputDef(input: unknown, path: string, errors: ValidationError
   }
   const output = input as Record<string, unknown>;
   if (!['json', 'text', 'csv', 'tsv', 'jsonl'].includes(output['format'] as string)) {
-    errors.push({ path: `${path}.format`, message: 'Must be one of: json, text, csv, tsv, jsonl' });
+    errors.push({
+      path: `${path}.format`,
+      message: 'Must be one of: json, text, csv, tsv, jsonl',
+    });
   }
 }
 
@@ -350,15 +448,27 @@ function validateCommandDef(input: unknown, path: string, errors: ValidationErro
   }
   const cmd = input as Record<string, unknown>;
   if (typeof cmd['name'] !== 'string' || cmd['name'].length === 0) {
-    errors.push({ path: `${path}.name`, message: 'Must be a non-empty string' });
+    errors.push({
+      path: `${path}.name`,
+      message: 'Must be a non-empty string',
+    });
   }
   if (typeof cmd['description'] !== 'string' || cmd['description'].length === 0) {
-    errors.push({ path: `${path}.description`, message: 'Must be a non-empty string' });
+    errors.push({
+      path: `${path}.description`,
+      message: 'Must be a non-empty string',
+    });
   } else if (cmd['description'].length > 500) {
-    errors.push({ path: `${path}.description`, message: 'Must not exceed 500 characters' });
+    errors.push({
+      path: `${path}.description`,
+      message: 'Must not exceed 500 characters',
+    });
   }
   if (typeof cmd['usage'] !== 'string' || cmd['usage'].length === 0) {
-    errors.push({ path: `${path}.usage`, message: 'Must be a non-empty string' });
+    errors.push({
+      path: `${path}.usage`,
+      message: 'Must be a non-empty string',
+    });
   }
   if ('args' in cmd && cmd['args'] !== undefined) {
     if (!Array.isArray(cmd['args'])) {
@@ -387,7 +497,10 @@ function validateCommandDef(input: unknown, path: string, errors: ValidationErro
     if (typeof cmd['timeoutMs'] !== 'number') {
       errors.push({ path: `${path}.timeoutMs`, message: 'Must be a number' });
     } else if (cmd['timeoutMs'] < 1000 || cmd['timeoutMs'] > 300000) {
-      errors.push({ path: `${path}.timeoutMs`, message: 'Must be between 1000 and 300000' });
+      errors.push({
+        path: `${path}.timeoutMs`,
+        message: 'Must be between 1000 and 300000',
+      });
     }
   }
 }

@@ -1,7 +1,5 @@
 /** Discriminated union for recoverable operation results. */
-export type Result<T, E> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 /** Constructs a successful Result. */
 export function ok<T>(value: T): Result<T, never> {

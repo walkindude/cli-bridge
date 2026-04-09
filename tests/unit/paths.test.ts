@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 
 // We'll mock the fs module
 vi.mock('node:fs', async () => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- vi.importActual requires inline import() type
   const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
   return {
     ...actual,
@@ -45,7 +46,9 @@ describe('paths', () => {
       const mkdirMock = vi.spyOn(fsMod.promises, 'mkdir').mockResolvedValue(undefined);
       const { getUserSpecDir } = await import('../../src/paths.js');
       await getUserSpecDir();
-      expect(mkdirMock).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+      expect(mkdirMock).toHaveBeenCalledWith(expect.any(String), {
+        recursive: true,
+      });
     });
   });
 

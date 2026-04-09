@@ -3,8 +3,11 @@ pre-commit:
   commands:
     lint:
       glob: "*.{ts,json}"
-      run: pnpm exec eslint {staged_files} --fix
+      run: pnpm run lint
     typecheck:
-      run: pnpm exec tsc --noEmit
+      run: pnpm run typecheck
     test:
-      run: pnpm exec vitest run --reporter=verbose
+      run: pnpm test
+    format:
+      glob: "*.ts"
+      run: pnpm run format:check

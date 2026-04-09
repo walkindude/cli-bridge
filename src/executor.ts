@@ -9,7 +9,7 @@ import type { ToolResult } from './types.js';
 export async function executeTool(
   loadedSpec: LoadedSpec,
   command: CommandDef,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
 ): Promise<ToolResult> {
   const args: string[] = [];
 
@@ -36,7 +36,7 @@ export async function executeTool(
   for (const arg of command.args ?? []) {
     const value = input[arg.name];
     if (value !== undefined) {
-      args.push(String(value));
+      args.push(typeof value === 'string' ? value : JSON.stringify(value));
     }
   }
 
@@ -51,18 +51,14 @@ export async function executeTool(
       (error, stdout, stderr) => {
         const durationMs = Date.now() - start;
         const exitCode =
-          error && 'code' in error && typeof error.code === 'number'
-            ? error.code
-            : error
-            ? 1
-            : 0;
+          error && 'code' in error && typeof error.code === 'number' ? error.code : error ? 1 : 0;
         resolve({
-          stdout: stdout ?? '',
-          stderr: stderr ?? '',
+          stdout,
+          stderr,
           exitCode,
           durationMs,
         });
-      }
+      },
     );
     // Ensure timeout is treated correctly
     void child;
@@ -73,7 +69,7 @@ function appendFlag(
   args: string[],
   name: string,
   type: 'string' | 'number' | 'boolean' | 'path',
-  value: unknown
+  value: unknown,
 ): void {
   if (type === 'boolean') {
     if (value === true) {

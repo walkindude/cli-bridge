@@ -18,7 +18,7 @@ try {
 describe.skipIf(!gosymdbAvailable)('gosymdb integration', () => {
   it('gosymdb binary is available and responds to --version', async () => {
     const result = await execFileAsync('gosymdb', ['--version']).catch(
-      (e: unknown) => e as { stdout: string; stderr: string }
+      (e: unknown) => e as { stdout: string; stderr: string },
     );
     expect(result.stdout || result.stderr).toBeTruthy();
   });

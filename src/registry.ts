@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { validateSpec } from './schema.js';
 import { resolveBinary, detectVersion, resolveSpecVersion } from './resolver.js';
 import type { CliToolSpec, CommandDef, FlagDef } from './schema.js';
-import type { SpecLoadError } from './types.js';
+import type { Result, SpecLoadError, VersionDetectError } from './types.js';
 
 export interface LoadedSpec {
   spec: CliToolSpec;
@@ -26,7 +26,7 @@ export interface ToolDefinition {
  * Discovers and loads all valid specs from all spec directories.
  */
 export async function discoverSpecs(
-  specDirs: string[]
+  specDirs: string[],
 ): Promise<{ specs: LoadedSpec[]; errors: SpecLoadError[] }> {
   const specs: LoadedSpec[] = [];
   const errors: SpecLoadError[] = [];
@@ -36,9 +36,7 @@ export async function discoverSpecs(
     let toolDirs: string[];
     try {
       const entries = await fs.readdir(specDir, { withFileTypes: true });
-      toolDirs = entries
-        .filter((e) => e.isDirectory())
-        .map((e) => join(specDir, e.name));
+      toolDirs = entries.filter((e) => e.isDirectory()).map((e) => join(specDir, e.name));
     } catch {
       continue;
     }
@@ -112,7 +110,7 @@ export async function discoverSpecs(
 
       if (!exactMatch) {
         console.error(
-          `[cli-bridge] spec for ${toolName} was generated against v${validation.value.binaryVersion}, installed binary is v${versionResult.value}`
+          `[cli-bridge] spec for ${toolName} was generated against v${validation.value.binaryVersion}, installed binary is v${versionResult.value}`,
         );
       }
 
@@ -140,10 +138,7 @@ export function specToMcpTools(spec: CliToolSpec): ToolDefinition[] {
 
     const description = `${command.description}\n\n${triggerText}`;
 
-    const allFlags: FlagDef[] = [
-      ...(spec.globalFlags ?? []),
-      ...(command.flags ?? []),
-    ];
+    const allFlags: FlagDef[] = [...(spec.globalFlags ?? []), ...(command.flags ?? [])];
 
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
@@ -201,13 +196,20 @@ function mapType(t: 'string' | 'number' | 'boolean' | 'path'): string {
  */
 async function detectVersionFromSpecs(
   binaryPath: string,
-  toolDir: string
-): Promise<import('./types.js').Result<string, import('./types.js').VersionDetectError>> {
+  toolDir: string,
+): Promise<Result<string, VersionDetectError>> {
   let files: string[];
   try {
     files = (await fs.readdir(toolDir)).filter((f) => f.endsWith('.json'));
   } catch {
-    return { ok: false, error: { binary: binaryPath, attemptedCommands: [], message: 'Could not read tool directory' } };
+    return {
+      ok: false,
+      error: {
+        binary: binaryPath,
+        attemptedCommands: [],
+        message: 'Could not read tool directory',
+      },
+    };
   }
 
   for (const file of files) {
@@ -215,8 +217,11 @@ async function detectVersionFromSpecs(
       const raw = await fs.readFile(join(toolDir, file), 'utf-8');
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       const vd = parsed['versionDetection'] as { command?: string; pattern?: string } | undefined;
-      if (vd?.command && vd?.pattern) {
-        const result = await detectVersion(binaryPath, { command: vd.command, pattern: vd.pattern });
+      if (vd?.command && vd.pattern) {
+        const result = await detectVersion(binaryPath, {
+          command: vd.command,
+          pattern: vd.pattern,
+        });
         if (result.ok) return result;
       }
     } catch {
@@ -224,7 +229,14 @@ async function detectVersionFromSpecs(
     }
   }
 
-  return { ok: false, error: { binary: binaryPath, attemptedCommands: [], message: 'No spec versionDetection pattern matched' } };
+  return {
+    ok: false,
+    error: {
+      binary: binaryPath,
+      attemptedCommands: [],
+      message: 'No spec versionDetection pattern matched',
+    },
+  };
 }
 
 /**
