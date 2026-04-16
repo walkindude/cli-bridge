@@ -127,6 +127,26 @@ Key fields:
 
 Teams can share specs by checking them into `.cli-bridge/specs/` in their repo. Project-level specs take priority over user-level specs.
 
+## Security model
+
+cli-bridge executes real binaries on your machine. A spec is effectively a shortcut to running a CLI command — loading a spec grants the same permissions as running the binary directly.
+
+**Spec sources and trust:**
+
+| Source | Trust level | Who controls it |
+|--------|------------|-----------------|
+| `.cli-bridge/specs/` in repo | Same as cloning the repo | Repo maintainers |
+| `~/.config/cli-bridge/specs/` | User-controlled | You |
+| `specs/` in plugin dir | Bundled with cli-bridge | cli-bridge maintainers |
+
+Project-local specs (`.cli-bridge/specs/`) load automatically when you open a project — the same trust model as `Makefile`, `.vscode/tasks.json`, or `package.json` scripts. **Review specs from untrusted repos before use.**
+
+**Execution safety:**
+- All commands run via `execFile` (no shell) — no metacharacter expansion
+- Output is capped at 10 MB per invocation
+- Timeouts enforced (default 30s, max 5 min)
+- Trigger phrases are length-limited to prevent prompt injection via tool descriptions
+
 ## Development
 
 ```bash

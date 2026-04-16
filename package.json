@@ -32,6 +32,31 @@
     "typescript-eslint": "^8.58.1",
     "vitest": "^4.1.4"
   },
+  "files": [
+    "dist/",
+    "specs/",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/walkindude/cli-bridge.git"
+  },
+  "homepage": "https://github.com/walkindude/cli-bridge",
+  "license": "Apache-2.0",
+  "author": "Stefano Mioli",
+  "keywords": [
+    "mcp",
+    "cli",
+    "claude",
+    "codex",
+    "agent",
+    "tool-use",
+    "model-context-protocol"
+  ],
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"

@@ -100,12 +100,12 @@ export const CLI_TOOL_SPEC_SCHEMA = {
         positive: {
           type: 'array',
           minItems: 1,
-          items: { type: 'string', minLength: 1 },
+          items: { type: 'string', minLength: 1, maxLength: 200 },
         },
         negative: {
           type: 'array',
           minItems: 1,
-          items: { type: 'string', minLength: 1 },
+          items: { type: 'string', minLength: 1, maxLength: 200 },
         },
       },
     },
@@ -301,6 +301,11 @@ export function validateSpec(input: unknown): Result<CliToolSpec, ValidationErro
             path: `triggers.positive[${i}]`,
             message: 'Must be a non-empty string',
           });
+        } else if (item.length > 200) {
+          errors.push({
+            path: `triggers.positive[${i}]`,
+            message: 'Must not exceed 200 characters',
+          });
         }
       });
     }
@@ -315,6 +320,11 @@ export function validateSpec(input: unknown): Result<CliToolSpec, ValidationErro
           errors.push({
             path: `triggers.negative[${i}]`,
             message: 'Must be a non-empty string',
+          });
+        } else if (item.length > 200) {
+          errors.push({
+            path: `triggers.negative[${i}]`,
+            message: 'Must not exceed 200 characters',
           });
         }
       });
