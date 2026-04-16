@@ -1,12 +1,22 @@
 # cli-bridge
 
-A Claude Code plugin that promotes CLI tools to first-class MCP tools via declarative JSON specs.
+Turn any CLI into an MCP tool that agents actually use.
 
-## Why
+## The problem
 
-Claude Code reaches for `grep` and `Bash` by default. CLAUDE.md instructions degrade under context pressure. Skills don't reliably trigger. MCP tools do — they participate in tool selection at the protocol level, before context pressure applies.
+You built a CLI that does something useful. Maybe it queries a database, lints code, or manages infrastructure. You tell the agent about it in CLAUDE.md or your system prompt. It works for a while, then the agent quietly goes back to `grep` and `Bash`.
 
-cli-bridge lets you describe any CLI tool's interface in a JSON spec. The plugin exposes each subcommand as a real MCP tool that Claude (and Codex) can call directly.
+This happens because text instructions sit in the context window, and context is a lossy channel. When the conversation gets long or the task gets complex, the agent forgets your tool exists. It falls back to what it knows: shell commands.
+
+MCP tools don't have this problem. They live outside the context window, in the tool registry. The agent sees them every time it decides which tool to call, regardless of how long the conversation is or how much pressure the context is under.
+
+## What cli-bridge does
+
+cli-bridge lets you describe your CLI's interface in a JSON spec file. On startup, it reads the spec and registers each subcommand as a real MCP tool. The agent sees `your_tool_callers` and `your_tool_find` in its tool list, not buried in a CLAUDE.md paragraph it might skip.
+
+When the agent calls one of these tools, cli-bridge runs your binary via `execFile` (no shell), parses the output according to the spec, and returns structured content. Your CLI stays a CLI. It just also happens to be an MCP tool now.
+
+This works with Claude Code, Codex, and anything else that speaks MCP.
 
 ## Install
 
@@ -64,7 +74,7 @@ Use the built-in skill to auto-generate a spec from any CLI binary:
 
 This inspects `--help` output, detects subcommands, and writes a spec to `~/.config/cli-bridge/specs/kubectl/<version>.json`.
 
-Or write specs by hand — see [Spec Format](#spec-format) below.
+Or write specs by hand. See [Spec Format](#spec-format) below.
 
 ## How it works
 
@@ -129,7 +139,7 @@ Teams can share specs by checking them into `.cli-bridge/specs/` in their repo. 
 
 ## Security model
 
-cli-bridge executes real binaries on your machine. A spec is effectively a shortcut to running a CLI command — loading a spec grants the same permissions as running the binary directly.
+cli-bridge executes real binaries on your machine. A spec is effectively a shortcut to running a CLI command. Loading a spec grants the same permissions as running the binary directly.
 
 **Spec sources and trust:**
 
@@ -139,10 +149,10 @@ cli-bridge executes real binaries on your machine. A spec is effectively a short
 | `~/.config/cli-bridge/specs/` | User-controlled | You |
 | `specs/` in plugin dir | Bundled with cli-bridge | cli-bridge maintainers |
 
-Project-local specs (`.cli-bridge/specs/`) load automatically when you open a project — the same trust model as `Makefile`, `.vscode/tasks.json`, or `package.json` scripts. **Review specs from untrusted repos before use.**
+Project-local specs (`.cli-bridge/specs/`) load automatically when you open a project, the same trust model as `Makefile`, `.vscode/tasks.json`, or `package.json` scripts. **Review specs from untrusted repos before use.**
 
 **Execution safety:**
-- All commands run via `execFile` (no shell) — no metacharacter expansion
+- All commands run via `execFile` (no shell), no metacharacter expansion
 - Output is capped at 10 MB per invocation
 - Timeouts enforced (default 30s, max 5 min)
 - Trigger phrases are length-limited to prevent prompt injection via tool descriptions
