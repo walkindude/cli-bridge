@@ -41,13 +41,14 @@ export async function executeTool(
   }
 
   const timeout = command.timeoutMs ?? 30000;
+  const maxBuffer = 10 * 1024 * 1024; // 10 MB
   const start = Date.now();
 
   return new Promise<ToolResult>((resolve) => {
     const child = execFile(
       loadedSpec.resolvedBinaryPath,
       args,
-      { timeout },
+      { timeout, maxBuffer },
       (error, stdout, stderr) => {
         const durationMs = Date.now() - start;
         const exitCode =
