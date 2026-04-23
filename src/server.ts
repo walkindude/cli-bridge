@@ -8,6 +8,7 @@ import { parseOutput } from './parser.js';
 import type { LoadedSpec } from './registry.js';
 import type { CommandDef } from './schema.js';
 import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -137,8 +138,18 @@ Each tool name is {binary}_{subcommand}. Check the tool descriptions for trigger
   await server.connect(transport);
 }
 
-// Only run when executed directly (not when imported for testing)
-const isDirectRun = process.argv[1]?.includes('server');
+// Only run when executed directly (not when imported for testing).
+// Compares this module's URL with the process entry point. realpathSync
+// resolves the npm global-bin symlink so `cli-bridge`, `node dist/server.js`,
+// and `node dist/cli-bridge.js` all match.
+const isDirectRun = (() => {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+})();
 if (isDirectRun) {
   main().catch((e: unknown) => {
     console.error('[cli-bridge] Fatal error:', e);
