@@ -392,7 +392,7 @@ describe('MCP server subprocess', () => {
   it('built server starts and logs to stderr', async () => {
     const { existsSync } = await import('node:fs');
     const path = await import('node:path');
-    const repoRoot = path.resolve(import.meta.dirname ?? __dirname, '..', '..');
+    const repoRoot = path.resolve(import.meta.dirname, '..', '..');
     const distPath = path.join(repoRoot, 'dist', 'server.js');
     if (!existsSync(distPath)) {
       // Skip if not built

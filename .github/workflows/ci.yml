@@ -14,6 +14,20 @@ jobs:
       - run: pnpm test
       - run: pnpm run build
 
+  nix:
+    # Builds the flake on every PR + push to master. Catches pnpmDeps.hash
+    # drift when pnpm-lock.yaml changes — nix prints the expected hash on
+    # mismatch; paste it into flake.nix and push.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: nix flake check
+        run: nix flake check --no-build
+      - name: nix build
+        run: nix build .#default
+
   release:
     needs: check
     if: startsWith(github.ref, 'refs/tags/v')
@@ -32,10 +46,16 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+      - name: Generate CycloneDX SBOM
+        run: |
+          pnpm dlx @cyclonedx/cyclonedx-npm \
+            --output-format JSON \
+            --output-file cli-bridge-sbom.cdx.json
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          files: cli-bridge-sbom.cdx.json
       - name: Publish to npm
         run: npm publish --access public --provenance
         env:

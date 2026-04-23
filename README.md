@@ -27,11 +27,35 @@ This works with Claude Code, Codex, and anything else that speaks MCP.
 /plugin install cli-bridge@cli-bridge
 ```
 
-### From npm
+### From npm (or any compatible package manager)
 
 ```bash
 npm install -g cli-bridge
+# or
+pnpm add -g cli-bridge
+# or
+yarn global add cli-bridge
+# or
+bun add -g cli-bridge
 ```
+
+### With mise
+
+```bash
+mise use -g npm:cli-bridge@latest
+```
+
+### With Nix (flakes)
+
+```bash
+nix profile install github:walkindude/cli-bridge
+# or for a one-off:
+nix run github:walkindude/cli-bridge
+# or drop into a dev shell with node + pnpm:
+nix develop github:walkindude/cli-bridge
+```
+
+### Configure the MCP client
 
 Then add to your project's `.mcp.json`:
 
