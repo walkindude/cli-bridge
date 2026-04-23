@@ -1,5 +1,11 @@
 # cli-bridge
 
+[![npm version](https://img.shields.io/npm/v/cli-bridge.svg)](https://www.npmjs.com/package/cli-bridge)
+[![CI](https://github.com/walkindude/cli-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/walkindude/cli-bridge/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![MCP](https://img.shields.io/badge/MCP-compatible-8A2BE2)](https://modelcontextprotocol.io)
+
 Turn any CLI into an MCP tool that agents actually use.
 
 ## The problem

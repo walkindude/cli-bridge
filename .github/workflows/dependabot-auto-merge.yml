@@ -1,0 +1,45 @@
+name: Dependabot auto-merge
+
+# Auto-merges low-risk Dependabot PRs once required status checks pass:
+#   - devDep patch + minor
+#   - GitHub Actions patch + minor
+#
+# Runtime deps and all major bumps fall through to manual review.
+# Required status checks (configured in branch protection) gate the merge,
+# so no PR lands without CI green.
+
+on: pull_request_target
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+
+      - name: Enable auto-merge for devDep patch/minor
+        if: |
+          steps.meta.outputs.package-ecosystem == 'npm_and_yarn' &&
+          steps.meta.outputs.dependency-type == 'direct:development' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for GitHub Actions patch/minor
+        if: |
+          steps.meta.outputs.package-ecosystem == 'github_actions' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

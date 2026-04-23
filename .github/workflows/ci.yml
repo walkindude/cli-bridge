@@ -13,6 +13,9 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm test
       - run: pnpm run build
+      # Fail on high+ severity advisories. Dependabot picks up the
+      # corresponding fixes and auto-merges devDep patch/minor.
+      - run: pnpm audit --audit-level high
 
   nix:
     # Builds the flake on every PR + push to master. Catches pnpmDeps.hash

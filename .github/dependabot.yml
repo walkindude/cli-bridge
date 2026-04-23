@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # npm dependencies
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    groups:
+      # devDep patch + minor collapse into one PR — safe to auto-merge.
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+    # Runtime deps (@modelcontextprotocol/sdk, zod) and ALL major bumps
+    # get individual PRs so they land in the manual-review queue.
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      actions:
+        update-types:
+          - patch
+          - minor
