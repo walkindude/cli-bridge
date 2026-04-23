@@ -1,0 +1,96 @@
+name: Dependabot nix hash sync
+
+# Automates the recovery documented in CLAUDE.md > "Nix pnpmDeps.hash drift".
+# When Dependabot opens/updates a PR that changes pnpm-lock.yaml, this job
+# runs `nix build`, catches the expected pnpmDeps.hash from the failure,
+# writes it to flake.nix, and commits back to the PR branch. The required
+# `nix` check then re-runs green and the PR's auto-merge can fire.
+#
+# Security:
+# - `pull_request_target` exposes secrets and contents:write, so we gate
+#   strictly on `github.actor == 'dependabot[bot]'`. Dependabot PRs come
+#   from branches in this repo (not forks) and Dependabot is trusted.
+# - The job checks out the PR head but only runs `nix build` + sed; no
+#   arbitrary PR-controlled code executes.
+# - When this workflow pushes back, `github.actor` on the resulting
+#   synchronize event becomes `github-actions[bot]`, so the job does not
+#   re-trigger itself (prevents infinite loops).
+
+on:
+  pull_request_target:
+    paths:
+      - 'pnpm-lock.yaml'
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  hash-sync:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Should sync?
+        id: check
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          CHANGED=$(git diff --name-only "$BASE_SHA" HEAD)
+          if echo "$CHANGED" | grep -qx 'flake.nix'; then
+            echo "sync=skip" >> "$GITHUB_OUTPUT"
+            echo "flake.nix is already modified in this PR; skipping."
+          elif echo "$CHANGED" | grep -qx 'pnpm-lock.yaml'; then
+            echo "sync=run" >> "$GITHUB_OUTPUT"
+          else
+            echo "sync=skip" >> "$GITHUB_OUTPUT"
+            echo "pnpm-lock.yaml not modified in this PR; nothing to do."
+          fi
+
+      - uses: DeterminateSystems/nix-installer-action@main
+        if: steps.check.outputs.sync == 'run'
+
+      - name: Compute expected pnpmDeps.hash
+        if: steps.check.outputs.sync == 'run'
+        id: hash
+        run: |
+          # nix build fails with a hash mismatch on lockfile drift; the
+          # error message contains the expected value on the "To correct
+          # the hash mismatch ... use \"sha256-...\"" line.
+          nix build .#default 2> build.log || true
+          NEW_HASH=$(grep -oE 'To correct the hash mismatch[^"]*"sha256-[A-Za-z0-9+/=]+"' build.log \
+                     | grep -oE 'sha256-[A-Za-z0-9+/=]+' \
+                     | head -1)
+          if [ -z "$NEW_HASH" ]; then
+            echo "Did not find a hash-mismatch line in build.log."
+            echo "Last 30 lines:"
+            tail -30 build.log
+            exit 0
+          fi
+          echo "hash=$NEW_HASH" >> "$GITHUB_OUTPUT"
+          echo "Expected pnpmDeps.hash: $NEW_HASH"
+
+      - name: Commit flake.nix to PR branch
+        if: steps.hash.outputs.hash != ''
+        env:
+          NEW_HASH: ${{ steps.hash.outputs.hash }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # Replace the single `hash = "sha256-...";` line in flake.nix.
+          # cli-bridge's flake only contains one such line (pnpmDeps).
+          sed -i -E "s|hash = \"sha256-[^\"]*\";|hash = \"$NEW_HASH\";|" flake.nix
+          if git diff --quiet flake.nix; then
+            echo "flake.nix already has the correct hash."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add flake.nix
+          git commit -m "chore(nix): repin pnpmDeps.hash after lockfile update"
+          git push origin "HEAD:$HEAD_REF"
