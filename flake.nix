@@ -22,15 +22,16 @@
 
           # Replace with the hash `nix build` prints on first build.
           # Bump whenever pnpm-lock.yaml changes. The nix CI job catches drift.
-          pnpmDeps = pkgs.pnpm.fetchDeps {
+          pnpmDeps = pkgs.fetchPnpmDeps {
             inherit (finalAttrs) pname version src;
+            fetcherVersion = 2;
             hash = pkgs.lib.fakeHash;
           };
 
           nativeBuildInputs = [
             pkgs.nodejs_22
             pkgs.pnpm
-            pkgs.pnpm.configHook
+            pkgs.pnpmConfigHook
             pkgs.makeWrapper
           ];
 
