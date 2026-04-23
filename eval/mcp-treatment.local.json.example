@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "cli-bridge": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/your/cli-bridge/dist/server.js"]
+    }
+  }
+}

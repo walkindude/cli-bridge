@@ -66,15 +66,17 @@ npm link
 
 ## Register a tool
 
-Use the built-in skill to auto-generate a spec from any CLI binary:
-
 ```
-/cli-bridge:register kubectl
+/cli-bridge:register <binary>
 ```
 
-This inspects `--help` output, detects subcommands, and writes a spec to `~/.config/cli-bridge/specs/kubectl/<version>.json`.
+Two paths, tried in order:
 
-Or write specs by hand. See [Spec Format](#spec-format) below.
+**Canonical path (preferred).** If the tool exposes a `<binary> cli-bridge-manifest` subcommand, the skill uses its output verbatim. The tool owns its own spec — zero drift, always in lockstep with the installed binary. This is the convention for CLI authors who want first-class cli-bridge support: `gosymdb` is the reference implementation.
+
+**Heuristic fallback.** If the tool doesn't expose a manifest, the skill scrapes `--help` output to synthesize a spec. Lower quality — you'll probably want to hand-tune the triggers.
+
+Specs land at `~/.config/cli-bridge/specs/<tool>/<version>.json`. See [Spec Format](#spec-format) below.
 
 ## How it works
 
@@ -161,12 +163,12 @@ Project-local specs (`.cli-bridge/specs/`) load automatically when you open a pr
 
 ```bash
 pnpm run build          # compile + bundle
-pnpm test               # vitest (180 tests)
-pnpm run test:coverage  # coverage report (target: 90%+)
-pnpm run lint           # eslint (strict + prettier)
+pnpm test               # vitest
+pnpm run test:coverage  # coverage report
+pnpm run lint           # eslint
 pnpm run typecheck      # tsc --noEmit
 pnpm run format         # prettier --write
-pnpm run format:check   # prettier --check (CI)
+pnpm run format:check   # prettier --check
 ```
 
 ## Architecture
