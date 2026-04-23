@@ -11,3 +11,16 @@ pre-commit:
     format:
       glob: "*.ts"
       run: pnpm run format:check
+    # Warn (don't block) when pnpm-lock.yaml is staged without flake.nix.
+    # The Nix pnpmDeps.hash is tied to the lockfile content; changing the
+    # lock without updating the hash will fail the `nix` CI job with a
+    # helpful error showing the correct hash to paste into flake.nix.
+    nix-hash-reminder:
+      glob: "pnpm-lock.yaml"
+      run: |
+        if ! git diff --cached --name-only | grep -qx 'flake.nix'; then
+          printf '\n\033[1;33m⚠\033[0m pnpm-lock.yaml is staged but flake.nix is not.\n'
+          printf '  The nix CI job will fail with a hash mismatch and print\n'
+          printf '  the correct hash — paste it into flake.nix (line ~28).\n\n'
+        fi
+        exit 0

@@ -45,3 +45,17 @@ The `specs/` directory in this plugin is empty by default.
 The JSON Schema in schema.ts is the canonical validation authority.
 The TypeScript types exist for development ergonomics but the schema is what validateSpec() uses.
 If they diverge, the JSON Schema wins. There is a cross-validation test to catch drift.
+
+## Nix pnpmDeps.hash drift
+
+`flake.nix` pins a content-addressed hash for the pnpm dependency set. Whenever `pnpm-lock.yaml` changes, that hash becomes stale. The pre-commit hook warns when you stage a lockfile change without also staging `flake.nix`, but it doesn't block.
+
+When the `nix` CI job fails with a hash mismatch, the log contains a line like:
+
+```
+To correct the hash mismatch for cli-bridge-pnpm-deps, use "sha256-xxxxxxxx..."
+```
+
+Copy that hash into `flake.nix` (the `pnpmDeps.hash` field, ~line 28), commit, push. The job goes green.
+
+Local nix builds fail the same way and print the same hint — no nix install on your machine is required to fix it, but the CI error is usually where you'll notice.
