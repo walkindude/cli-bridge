@@ -28,7 +28,9 @@ permissions:
 
 jobs:
   hash-sync:
-    if: github.actor == 'dependabot[bot]'
+    # Check the PR author, not github.actor. See dependabot-auto-merge.yml
+    # for the reasoning.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

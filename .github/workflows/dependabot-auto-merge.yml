@@ -16,7 +16,11 @@ permissions:
 
 jobs:
   auto-merge:
-    if: github.actor == 'dependabot[bot]'
+    # Check the PR author, not github.actor. When a human comments
+    # `@dependabot rebase`, the synchronize event's actor is the commenter,
+    # not Dependabot — so `github.actor` fails for human-triggered rebases
+    # even though the PR is still Dependabot's.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Fetch Dependabot metadata
