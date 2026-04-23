@@ -3,3 +3,6 @@ dist/
 coverage/
 .vitest/
 *.sqlite
+eval/results/
+eval/current-isolate.txt
+eval/mcp-treatment.local.json

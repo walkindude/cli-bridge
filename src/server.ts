@@ -30,8 +30,11 @@ export async function main(): Promise<void> {
     .flatMap((s) => s.spec.commands.map((c) => `${s.spec.name}_${c.name}`))
     .join(', ');
 
+  // '__CLI_BRIDGE_VERSION__' is substituted by scripts/bundle.js at build
+  // time with the git-derived version (tag or dev-<sha>). Development/test
+  // runs keep the literal placeholder, which is harmless.
   const server = new McpServer(
-    { name: 'cli-bridge', version: '0.1.0' },
+    { name: 'cli-bridge', version: '__CLI_BRIDGE_VERSION__' },
     {
       instructions: `You have access to CLI tools registered via cli-bridge: ${toolSummary || 'none loaded'}.
 

@@ -1,0 +1,9 @@
+{"id":"t01_callers","prompt":"In this Go codebase, what functions or methods call `Context.JSON`? I need the direct callers.","gold_tool":"gosymdb_callers","gold_answer_fragment":"AbortWithStatusJSON"}
+{"id":"t02_blast_radius","prompt":"I'm about to change the signature of the `gin.New` function. What will break — which call sites and tests need updating across the codebase?","gold_tool":"gosymdb_blast-radius","gold_answer_fragment":"Default"}
+{"id":"t03_implementors","prompt":"Which types in this repository implement the `IRouter` interface?","gold_tool":"gosymdb_implementors","gold_answer_fragment":"RouterGroup"}
+{"id":"t04_callees","prompt":"What does the top-level `gin.Default` function call internally? I want to understand what it wires up.","gold_tool":"gosymdb_callees","gold_answer_fragment":"New"}
+{"id":"t05_references","prompt":"Where is the `gin.Context` type used throughout this codebase? I'm interested in actual uses of the type — struct literals, type assertions, conversions, embeds — not just places the word appears.","gold_tool":"gosymdb_references","gold_answer_fragment":"Context"}
+{"id":"t06_dead","prompt":"Are there any unused unexported functions in the top-level `gin` package — candidates that could potentially be deleted?","gold_tool":"gosymdb_dead","gold_answer_fragment":"gin"}
+{"id":"t07_find_by_file","prompt":"List all the symbols defined in the file `routergroup.go` — functions, methods, types, the lot.","gold_tool":"gosymdb_find","gold_answer_fragment":"RouterGroup"}
+{"id":"t08_def","prompt":"What's the exact signature of the `RouterGroup.Handle` method, and where is it defined?","gold_tool":"gosymdb_def","gold_answer_fragment":"Handle"}
+{"id":"t10_health","prompt":"How complete is the static analysis of this codebase? I want to know if there are unresolved calls or symbols the analyzer couldn't reason about.","gold_tool":"gosymdb_health","gold_answer_fragment":"unresolved"}

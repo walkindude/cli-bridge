@@ -391,7 +391,9 @@ describe('server wiring logic', () => {
 describe('MCP server subprocess', () => {
   it('built server starts and logs to stderr', async () => {
     const { existsSync } = await import('node:fs');
-    const distPath = '__REPO_ROOT__/dist/server.js';
+    const path = await import('node:path');
+    const repoRoot = path.resolve(import.meta.dirname ?? __dirname, '..', '..');
+    const distPath = path.join(repoRoot, 'dist', 'server.js');
     if (!existsSync(distPath)) {
       // Skip if not built
       return;
@@ -400,7 +402,7 @@ describe('MCP server subprocess', () => {
     const { spawn } = await import('node:child_process');
 
     const child = spawn('node', [distPath], {
-      cwd: '__REPO_ROOT__',
+      cwd: repoRoot,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

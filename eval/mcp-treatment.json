@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cli-bridge": {
+      "type": "stdio",
+      "command": "cli-bridge"
+    }
+  }
+}
