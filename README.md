@@ -12,7 +12,7 @@ MCP tools don't have this problem. They live outside the context window, in the 
 
 ## What cli-bridge does
 
-cli-bridge lets you describe your CLI's interface in a JSON spec file. On startup, it reads the spec and registers each subcommand as a real MCP tool. The agent sees `your_tool_callers` and `your_tool_find` in its tool list, not buried in a CLAUDE.md paragraph it might skip.
+cli-bridge lets you describe your CLI's interface in a JSON spec file. On startup, it reads the spec and registers each subcommand as a real MCP tool. The agent sees `tool_foo` and `tool_bar` in its tool list, not buried in a CLAUDE.md paragraph it might skip.
 
 When the agent calls one of these tools, cli-bridge runs your binary via `execFile` (no shell), parses the output according to the spec, and returns structured content. Your CLI stays a CLI. It just also happens to be an MCP tool now.
 
@@ -96,7 +96,7 @@ npm link
 
 Two paths, tried in order:
 
-**Canonical path (preferred).** If the tool exposes a `<binary> cli-bridge-manifest` subcommand, the skill uses its output verbatim. The tool owns its own spec — zero drift, always in lockstep with the installed binary. This is the convention for CLI authors who want first-class cli-bridge support: `gosymdb` is the reference implementation.
+**Canonical path (preferred).** If the tool exposes a `<binary> cli-bridge-manifest` subcommand, the skill uses its output verbatim. The tool owns its own spec — zero drift, always in lockstep with the installed binary. This is the convention for CLI authors who want first-class cli-bridge support: [gosymdb](https://github.com/walkindude/gosymdb) is the reference implementation.
 
 **Heuristic fallback.** If the tool doesn't expose a manifest, the skill scrapes `--help` output to synthesize a spec. Lower quality — you'll probably want to hand-tune the triggers.
 
@@ -111,7 +111,7 @@ Specs land at `~/.config/cli-bridge/specs/<tool>/<version>.json`. See [Spec Form
 
 2. For each spec, it resolves the binary via `which`, detects the installed version, and picks the best-matching spec file.
 
-3. Each command in the spec becomes an MCP tool named `{tool}_{command}` (e.g. `kubectl_get`, `gosymdb_callers`).
+3. Each command in the spec becomes an MCP tool named `{tool}_{command}` (e.g. `tool_foo`, `tool_bar`).
 
 4. When Claude calls a tool, cli-bridge runs the binary via `execFile` (no shell), parses stdout according to the spec's output format, and returns structured MCP content.
 
