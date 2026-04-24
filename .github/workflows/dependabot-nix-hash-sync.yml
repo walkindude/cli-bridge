@@ -69,16 +69,21 @@ jobs:
         if: steps.check.outputs.sync == 'run'
         id: hash
         run: |
-          # nix build fails with a hash mismatch on lockfile drift; the
-          # error message contains the expected value on the "To correct
-          # the hash mismatch ... use \"sha256-...\"" line.
+          # nix build fails with a hash mismatch on lockfile drift. Its
+          # stderr contains a three-line block:
+          #   error: hash mismatch in fixed-output derivation '/nix/store/...':
+          #            specified: sha256-OLD
+          #               got:    sha256-NEW
+          # The "##[error]To correct the hash mismatch ..." annotation you
+          # see in the Actions UI is added by DeterminateSystems after nix
+          # exits and is NOT in nix's own stderr — don't grep for it.
           nix build .#default 2> build.log || true
-          NEW_HASH=$(grep -oE 'To correct the hash mismatch[^"]*"sha256-[A-Za-z0-9+/=]+"' build.log \
+          NEW_HASH=$(grep -E '^\s+got:\s+sha256-' build.log \
                      | grep -oE 'sha256-[A-Za-z0-9+/=]+' \
                      | head -1)
           if [ -z "$NEW_HASH" ]; then
-            echo "Did not find a hash-mismatch line in build.log."
-            echo "Last 30 lines:"
+            echo "No 'got: sha256-...' line found in build.log."
+            echo "Last 30 lines of build.log:"
             tail -30 build.log
             exit 0
           fi
