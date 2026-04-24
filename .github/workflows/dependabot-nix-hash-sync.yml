@@ -42,9 +42,16 @@ jobs:
       - name: Should sync?
         id: check
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          CHANGED=$(git diff --name-only "$BASE_SHA" HEAD)
+          # Compare against live base branch, not the stale base.sha on the
+          # event (which drifts as master advances — flake.nix changes on
+          # master would then falsely look like PR-local changes).
+          git fetch origin "$BASE_REF" --quiet
+          MERGE_BASE=$(git merge-base "origin/$BASE_REF" HEAD)
+          CHANGED=$(git diff --name-only "$MERGE_BASE" HEAD)
+          echo "Files changed in PR:"
+          echo "$CHANGED" | sed 's/^/  /'
           if echo "$CHANGED" | grep -qx 'flake.nix'; then
             echo "sync=skip" >> "$GITHUB_OUTPUT"
             echo "flake.nix is already modified in this PR; skipping."
