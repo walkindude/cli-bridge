@@ -11,7 +11,11 @@ jobs:
       - run: pnpm run format:check
       - run: pnpm run lint
       - run: pnpm run typecheck
-      - run: pnpm test
+      # Use the coverage variant so vitest's configured `thresholds.lines`
+      # (see vitest.config.ts) actually gates CI. Plain `pnpm test` runs
+      # the same suite but never enforces the threshold — the existing
+      # 90% target was aspirational, not load-bearing.
+      - run: pnpm run test:coverage
       - run: pnpm run build
       # Fail on high+ severity advisories. Dependabot picks up the
       # corresponding fixes and auto-merges devDep patch/minor.
