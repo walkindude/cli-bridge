@@ -8,13 +8,17 @@ name: Dependabot nix hash sync
 #
 # Security:
 # - `pull_request_target` exposes secrets and contents:write, so we gate
-#   strictly on `github.actor == 'dependabot[bot]'`. Dependabot PRs come
-#   from branches in this repo (not forks) and Dependabot is trusted.
+#   strictly on PR author == dependabot[bot], checked via
+#   `github.event.pull_request.user.login` (NOT `github.actor`; the actor
+#   becomes the human commenter when someone runs `@dependabot rebase`,
+#   which would silently break the gate). Dependabot PRs come from
+#   branches in this repo (not forks) and Dependabot is trusted.
 # - The job checks out the PR head but only runs `nix build` + sed; no
 #   arbitrary PR-controlled code executes.
-# - When this workflow pushes back, `github.actor` on the resulting
-#   synchronize event becomes `github-actions[bot]`, so the job does not
-#   re-trigger itself (prevents infinite loops).
+# - When this workflow pushes back, `GITHUB_TOKEN`-authored pushes do not
+#   re-trigger workflows (recursive-loop protection); required CI checks
+#   may need a close+reopen ritual to re-run. Permanent fix: swap to a PAT
+#   or GitHub App token for the push (deferred).
 
 on:
   pull_request_target:
