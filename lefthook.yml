@@ -11,6 +11,12 @@ pre-commit:
     format:
       glob: "*.ts"
       run: pnpm run format:check
+    # Block when package.json and .claude-plugin/plugin.json's version fields
+    # disagree. The two were silently out of sync between v0.1.0 and v0.1.2;
+    # this guard ensures we don't ship that confused state again.
+    check-versions:
+      glob: "{package.json,.claude-plugin/plugin.json}"
+      run: pnpm run check:versions
     # Warn (don't block) when pnpm-lock.yaml is staged without flake.nix.
     # The Nix pnpmDeps.hash is tied to the lockfile content; changing the
     # lock without updating the hash will fail the `nix` CI job with a

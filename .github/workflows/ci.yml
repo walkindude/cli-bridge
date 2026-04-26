@@ -13,6 +13,8 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm test
       - run: pnpm run build
+      # Catch package.json / plugin.json version skew before it ships.
+      - run: pnpm run check:versions
       # Fail on high+ severity advisories. Dependabot picks up the
       # corresponding fixes and auto-merges devDep patch/minor.
       - run: pnpm audit --audit-level high
