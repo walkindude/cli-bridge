@@ -48,7 +48,7 @@
     "type": "git",
     "url": "git+https://github.com/walkindude/cli-bridge.git"
   },
-  "homepage": "https://github.com/walkindude/cli-bridge",
+  "homepage": "https://projects.mioli.dev/cli-bridge/",
   "license": "Apache-2.0",
   "author": "Stefano Mioli",
   "keywords": [
