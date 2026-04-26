@@ -151,8 +151,8 @@ Specs live at `~/.config/cli-bridge/specs/<tool>/<version>.json`.
     "pattern": "jq-(\\d+\\.\\d+[.\\d+]*)"
   },
   "triggers": {
-    "positive": ["BEFORE processing or filtering JSON data"],
-    "negative": ["Do NOT use for non-JSON formats"]
+    "positive": ["JSON parsing or filter pipelines", "applying a transformation to a JSON document"],
+    "negative": ["non-JSON input formats (XML, CSV, raw text)"]
   },
   "commands": [
     {
@@ -175,11 +175,13 @@ Key fields:
 
 | Field | Purpose |
 |-------|---------|
-| `triggers.positive` | When the model SHOULD consider this tool |
-| `triggers.negative` | When the model should NOT use this tool |
+| `triggers.positive` | Situations where this tool is the right answer |
+| `triggers.negative` | Situations where it doesn't fit |
 | `output.format` | How to parse stdout: `json`, `jsonl`, `text`, `csv`, `tsv` |
 | `versionDetection` | How to detect the installed binary version on startup |
 | `globalFlags` | Flags available on every command |
+
+Trigger phrases land in the agent's MCP tool catalog at server startup, so they're prompt-adjacent by construction. Descriptive register ("JSON parsing tasks", "non-Go codebases") works the same as imperatives ("BEFORE you parse JSON", "Do NOT use for non-Go") for tool selection but doesn't carry directive weight into runtime contexts. The convention here is descriptive.
 
 Teams can share specs by checking them into `.cli-bridge/specs/` in their repo. Project-level specs take priority over user-level specs.
 
