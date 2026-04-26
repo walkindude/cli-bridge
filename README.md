@@ -6,7 +6,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-compatible-8A2BE2)](https://modelcontextprotocol.io)
 
-Turn any CLI into an MCP tool that agents actually use.
+**If you want agents to actually use your CLI, this is the missing piece.**
+
+You wrote the CLI, you mentioned it in `CLAUDE.md`, the agent used it twice and then went back to `Bash`. cli-bridge solves that by registering your tool's commands as real MCP tools that live in the agent's tool registry — outside the context window, where they don't decay under conversation pressure.
 
 ## The problem
 
@@ -26,44 +28,40 @@ This works with Claude Code, Codex, and anything else that speaks MCP.
 
 ## Install
 
-### From the marketplace (Claude Code)
+There are two paths. Pick one — they're not sequential.
+
+### Path A — Plugin (Claude Code, recommended)
+
+One command, gets you the binary + MCP server registration + the `/cli-bridge:register` slash command:
 
 ```
 /plugin marketplace add walkindude/cli-bridge
 /plugin install cli-bridge@cli-bridge
 ```
 
-### From npm (or any compatible package manager)
+Skip the rest of this section.
+
+### Path B — Standalone (npm / Codex / other MCP clients)
+
+If you're not on Claude Code, or you want the binary without the plugin scaffolding:
+
+**1. Install the binary.** Pick whichever fits:
 
 ```bash
-npm install -g cli-bridge
-# or
-pnpm add -g cli-bridge
-# or
-yarn global add cli-bridge
-# or
-bun add -g cli-bridge
+npm install -g cli-bridge          # or pnpm / yarn / bun
+mise use -g npm:cli-bridge@latest  # via mise
+nix profile install github:walkindude/cli-bridge  # via nix
 ```
 
-### With mise
+For source builds: `git clone … && pnpm install && pnpm run build && npm link`.
+
+**2. Register as an MCP server.** For Claude Code, the canonical command is one line:
 
 ```bash
-mise use -g npm:cli-bridge@latest
+claude mcp add cli-bridge -s user -- cli-bridge
 ```
 
-### With Nix (flakes)
-
-```bash
-nix profile install github:walkindude/cli-bridge
-# or for a one-off:
-nix run github:walkindude/cli-bridge
-# or drop into a dev shell with node + pnpm:
-nix develop github:walkindude/cli-bridge
-```
-
-### Configure the MCP client
-
-Then add to your project's `.mcp.json`:
+Or by hand — add to `~/.claude.json` (user scope) or your project's `.mcp.json`:
 
 ```json
 {
@@ -76,37 +74,53 @@ Then add to your project's `.mcp.json`:
 }
 ```
 
-### For Codex
-
-Add to `~/.codex/config.toml`:
+For Codex — add to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.cli-bridge]
 command = "cli-bridge"
 ```
 
-### From source
-
-```bash
-git clone https://github.com/walkindude/cli-bridge
-cd cli-bridge
-pnpm install && pnpm run build
-npm link
-```
+**3. Restart your MCP client.** Tools register at startup; new MCP servers don't appear in an already-running session.
 
 ## Register a tool
+
+A registered tool means cli-bridge knows where its spec is and what binary version it targets.
+
+### If you installed via Path A (plugin)
+
+Use the slash command from inside Claude Code:
 
 ```
 /cli-bridge:register <binary>
 ```
 
-Two paths, tried in order:
+It tries the canonical path first, falls back to scraping `--help` if needed. Both paths write to `~/.config/cli-bridge/specs/<tool>/<version>.json`.
 
-**Canonical path (preferred).** If the tool exposes a `<binary> cli-bridge-manifest` subcommand, the skill uses its output verbatim. The tool owns its own spec — zero drift, always in lockstep with the installed binary. This is the convention for CLI authors who want first-class cli-bridge support: [gosymdb](https://github.com/walkindude/gosymdb) is the reference implementation.
+### If you installed via Path B (standalone)
 
-**Heuristic fallback.** If the tool doesn't expose a manifest, the skill scrapes `--help` output to synthesize a spec. Lower quality — you'll probably want to hand-tune the triggers.
+You don't have the slash command. Two options:
+
+- **Canonical path (preferred for CLI authors who follow the convention).** If your tool exposes `<binary> cli-bridge-manifest` (this is the convention — [gosymdb](https://github.com/walkindude/gosymdb) is the reference), write the spec directly:
+
+  ```bash
+  mkdir -p ~/.config/cli-bridge/specs/<tool>
+  <tool> cli-bridge-manifest > ~/.config/cli-bridge/specs/<tool>/$(<tool> --version | awk '{print $NF}').json
+  ```
+
+  After this, **cli-bridge auto-refreshes** the spec whenever the binary version changes. You'll see a `[cli-bridge] auto-refreshed spec for <tool> to v<new>` log line on the next startup. No manual re-registration needed for canonical-convention tools.
+
+- **Heuristic fallback.** If the tool doesn't have `cli-bridge-manifest`, install the plugin (Path A) once just to get the slash command's `--help` scraping logic, then run `/cli-bridge:register <binary>`. Hand-tune the triggers afterwards.
+
+### Spec layout
 
 Specs land at `~/.config/cli-bridge/specs/<tool>/<version>.json`. See [Spec Format](#spec-format) below.
+
+## Spec format stability
+
+The spec schema (`specVersion: "1"`) is **additive-only**. New optional fields can appear in v1; existing fields will not be renamed, removed, or have their semantics changed within v1. A breaking schema change would mint `specVersion: "2"` alongside, and cli-bridge would continue to load v1 specs indefinitely.
+
+In practice this means a spec written today against gosymdb v0.1.2 (or [cairn](https://github.com/walkindude/cairn), or any other tool that ships `<binary> cli-bridge-manifest`) will keep working as cli-bridge evolves. The contract is the JSON shape, not the package version.
 
 ## How it works
 
@@ -213,6 +227,10 @@ pnpm run format:check   # prettier --check
 | `src/resolver.ts` | Binary resolution (`which`), version detection, semver matching |
 | `src/paths.ts` | Spec directory resolution with XDG support |
 | `src/types.ts` | `Result<T,E>`, error types |
+
+## For agents reading this repo
+
+See [AGENTS.md](./AGENTS.md) for the convention, when to use cli-bridge tools versus `Bash`, and which sibling projects in this family already follow the manifest convention.
 
 ## Versioning
 
