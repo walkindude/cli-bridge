@@ -11,8 +11,9 @@ agent's first tool call is the "gold" gosymdb tool for that task.
 
 - `tasks.jsonl` — 10 natural-language tasks targeting gin. Each has an
   `id`, `prompt`, `gold_tool`, and optional `gold_answer_fragment`.
-- `runner.mjs` — spawns `claude -p --bare --output-format stream-json` per
-  (task × treatment × trial), writes JSONL to `results/<run-id>/...`.
+- `runner.mjs` — spawns `claude -p --output-format stream-json` per
+  (task × treatment × trial) with the bias controls listed below, writes
+  JSONL to `results/<run-id>/...`.
 - `score.mjs` — parses JSONL, emits `per-task.csv`, `summary.md`, `scores.json`.
 - `mcp-treatment.json` — loads cli-bridge MCP server (dist/server.js).
 - `mcp-control.json` — empty MCP config (agent has Bash/Grep/Read only).
@@ -68,11 +69,19 @@ Each invocation is budget-capped at `$0.50` via `--max-budget-usd`.
 
 ## Bias controls baked in
 
-- `--bare` — disables CLAUDE.md auto-discovery, hooks, memory, prefetch, plugin sync.
-  The single most important control: nothing whispers "use gosymdb" to the agent.
-- `--strict-mcp-config` + separate treatment/control configs — treatment
-  loads cli-bridge; control has `{"mcpServers":{}}`.
-- `--no-session-persistence` — trials are isolated.
+- `/tmp` isolate cwd — `eval/setup.sh` clones gin into a fresh `/tmp`
+  directory and writes the path to `eval/current-isolate.txt`. The
+  runner spawns `claude -p` from that directory so no `CLAUDE.md` from
+  this repo (or any ancestor) is auto-loaded into the agent's context.
+  This is the single most important control: nothing whispers "use
+  gosymdb" to the agent. Note: this is *not* the literal `--bare` flag
+  (which would force `ANTHROPIC_API_KEY` auth) — it's a manually
+  composed equivalent that preserves the OAuth/keychain login.
+- `--no-session-persistence` — trials are isolated, no carry-over.
+- `--strict-mcp-config` plus separate treatment/control configs —
+  treatment loads cli-bridge; control has `{"mcpServers":{}}`.
+- `--disable-slash-commands` — kills any user-level skills that might
+  otherwise reach gosymdb indirectly through a wrapper.
 - Target dir is gin (third-party repo, no CLAUDE.md). Not gosymdb itself.
 - Task prompts are phrased naively: no mention of "gosymdb", "call graph",
   "index", "typed". A teammate would ask them this way.
