@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Eval runner for cli-bridge × gosymdb.
-// For each (task × treatment × trial), spawns `claude -p` in --bare mode and
-// streams the JSONL output to disk.
+// For each (task × treatment × trial), spawns `claude -p` with the bias
+// controls listed in eval/README.md (no session persistence, strict MCP
+// config, no slash commands, /tmp isolate) and streams JSONL output to disk.
 
 import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, createWriteStream } from 'node:fs';
