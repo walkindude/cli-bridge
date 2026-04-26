@@ -55,9 +55,13 @@ In both cases the final spec is written to
    - `binaryVersion`: detected version
    - `description`: extracted from help (max 500 chars)
    - `versionDetection`: `{ command: "--version", pattern: "v?(\\d+\\.\\d+[.\\d+]*)" }`
-   - `triggers.positive`: 3–5 natural language phrases describing when to
-     use the tool
-   - `triggers.negative`: 3–5 phrases describing when NOT to use the tool
+   - `triggers.positive`: 3–5 descriptive phrases naming the tasks or
+     inputs the tool fits (e.g. "JSON parsing tasks",
+     "schema-aware symbol queries"). Avoid imperatives directed at the
+     reader ("BEFORE you parse JSON"); see the Notes section below.
+   - `triggers.negative`: 3–5 phrases naming inputs or tasks where the
+     tool doesn't apply (e.g. "non-JSON input formats", "non-Go
+     codebases"). Same descriptive register as the positive set.
    - `commands`: one entry per detected subcommand, with `output.format:
      "text"` as default
 
@@ -113,9 +117,13 @@ Commands registered: add, commit, push, pull, clone, log, status, diff,
   (check `--json` flag or help mentions "JSON output"), set `output.format:
   "json"`.
 
-- The `triggers` should be written in natural language that an AI
-  assistant would use when deciding to call this tool. Be specific about
-  what the tool is good for.
+- Triggers describe the situations where the tool fits, in descriptive
+  register. They are read by future agents at MCP startup, so the
+  preferred shape is "for X tasks" or "X inputs", not "BEFORE you do
+  X" or "Do NOT use for X". Imperatives written into triggers become
+  prompt injection by the time they reach a model's tool catalog.
+  Descriptive phrasing works just as well for tool selection without
+  carrying directive weight into runtime contexts.
 
 - Keep `description` under 500 characters.
 
