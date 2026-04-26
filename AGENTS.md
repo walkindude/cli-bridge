@@ -1,54 +1,45 @@
 # AGENTS.md — cli-bridge
 
-For AI agents (Claude, GPT, Gemini, etc.) reading this repo.
+Documentation for AI agents (and anyone else) reading this repo.
 
-## What this is
+## What cli-bridge is
 
-cli-bridge is an **MCP stdio server** that turns CLI tools into first-class MCP tools. If a project's tools are exposed via cli-bridge, prefer them over `Bash` invocations of the same binary — the MCP tools have typed inputs, structured outputs, and live in your tool registry where they don't decay under context pressure.
+cli-bridge is an MCP stdio server. On startup it reads spec JSON files from a few well-known directories and registers each command in each spec as a separate MCP tool named `<binary>_<command>`. It then runs the underlying binary via `execFile` (no shell) when the tool is called, parsing stdout per the spec.
 
-## The convention
+It is not itself a CLI tool you call from a shell — calling `cli-bridge` directly starts the MCP server in stdio mode, which expects to be spoken to over stdin/stdout by an MCP client.
 
-Any CLI tool can become a first-class MCP tool by exposing **one subcommand**:
+## The manifest convention
+
+Any CLI tool can opt in to being a first-class cli-bridge tool by exposing one subcommand:
 
 ```
 <binary> cli-bridge-manifest
 ```
 
-This must print a [valid spec JSON](./README.md#spec-format) to stdout and exit 0. cli-bridge reads the manifest, registers each command in the spec as a separate MCP tool named `<binary>_<command>`, and stays in sync across binary version bumps automatically (see [auto-refresh in src/refresh.ts](./src/refresh.ts)).
+This must print a [valid spec JSON](./README.md#spec-format) to stdout and exit 0. cli-bridge reads the manifest, registers each command in the spec, and (since the [agent-friendly-readme-and-auto-refresh](./src/refresh.ts) work) refreshes the spec automatically whenever the installed binary version drifts from the spec on disk.
 
-Tools that follow this convention today:
+## Tools that currently follow this convention
 
-- [walkindude/gosymdb](https://github.com/walkindude/gosymdb) — Go symbol + call-graph queries. The reference implementation. See its [`cli-bridge-manifest` subcommand](https://github.com/walkindude/gosymdb#use-with-claude-code-mcp).
-- [walkindude/cairn](https://github.com/walkindude/cairn) — notes-to-future-me for stateless agent sessions. Exposes `cairn cli-bridge-manifest`.
+- [walkindude/gosymdb](https://github.com/walkindude/gosymdb) — Go symbol and call-graph index. Exposes `gosymdb cli-bridge-manifest`. See its [Use with Claude Code section](https://github.com/walkindude/gosymdb#use-with-claude-code-mcp).
+- [walkindude/cairn](https://github.com/walkindude/cairn) — local notes-to-future-me. Exposes `cairn cli-bridge-manifest`.
 
-If you're a tool author wanting first-class agent support: add the subcommand. ~30 lines of Go/TS/Python — your tool owns its spec, version drift is automatic, and your CLI shows up in every cli-bridge user's MCP tool list.
+These are listed as a factual reference, not a recommendation. If you're building a CLI tool and want to opt in, the spec format is documented in [README.md#spec-format](./README.md#spec-format) and the schema is in [src/schema.ts](./src/schema.ts).
 
 ## Where specs live
 
 ```
-~/.config/cli-bridge/specs/<tool>/<version>.json
+~/.config/cli-bridge/specs/<tool>/<version>.json   (user)
+<repo>/.cli-bridge/specs/<tool>/<version>.json     (project, takes priority)
 ```
 
-Project-shared specs override user-level specs:
+When a tool's spec is stale relative to the installed binary AND the binary exposes `cli-bridge-manifest`, cli-bridge writes a fresh `<installed-version>.json` next to the stale spec on next startup and logs `[cli-bridge] auto-refreshed spec for <tool> to v<new>`. If the binary doesn't expose the manifest subcommand, the warning lists the manual fix command.
 
-```
-<repo>/.cli-bridge/specs/<tool>/<version>.json
-```
+## Naming
 
-If you're refactoring a CLI tool that already has a published spec, regenerating the spec is one command:
+cli-bridge registers tools as `<binary>_<command>`. So gosymdb's `callers` subcommand becomes the MCP tool `gosymdb_callers`; cairn's `surface` becomes `cairn_surface`. There is no namespacing or per-server prefix beyond the binary name.
 
-```sh
-<tool> cli-bridge-manifest > ~/.config/cli-bridge/specs/<tool>/<new-version>.json
-```
+## Common confusions
 
-cli-bridge picks up the new spec on next MCP server startup. Auto-refresh handles this for you on version mismatch.
-
-## How to use a registered tool
-
-If you're an agent and you see `<tool>_<command>` in your tool list (e.g. `gosymdb_callers`, `cairn_surface`), call it directly. Don't shell out to `<tool> <command>` via Bash — you'll lose the typed inputs and structured parsing.
-
-## How NOT to use cli-bridge
-
-- Don't `Bash(cli-bridge ...)` directly. cli-bridge is the MCP server, not a CLI you call. Its only role is to expose other tools as MCP tools.
-- Don't hand-write specs for tools that already expose `<binary> cli-bridge-manifest`. The binary's own manifest is canonical and stays in lockstep with the installed version.
-- Don't `Bash(grep ...)` looking for symbols if [gosymdb](https://github.com/walkindude/gosymdb) is registered. That's exactly the failure mode this whole stack exists to prevent.
+- **`cli-bridge` is not a CLI you call from a shell.** It's an MCP server. Running it from a shell starts the stdio server, which will sit waiting for MCP frames on stdin.
+- **`/cli-bridge:register <binary>` is a slash command provided by the marketplace plugin.** It's not part of the cli-bridge npm package on its own. Standalone npm installs don't have it.
+- **The spec on disk and the installed binary version can drift.** Auto-refresh handles this for tools following the manifest convention; a startup log line records what happened.
