@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { validateSpec } from './schema.js';
 import { resolveBinary, detectVersion, resolveSpecVersion } from './resolver.js';
+import { tryAutoRefreshSpec } from './refresh.js';
 import type { CliToolSpec, CommandDef, FlagDef } from './schema.js';
 import type { Result, SpecLoadError, VersionDetectError } from './types.js';
 
@@ -108,18 +109,42 @@ export async function discoverSpecs(
         continue;
       }
 
+      let activeSpec = validation.value;
+      let activeExactMatch = exactMatch;
+
       if (!exactMatch) {
-        console.error(
-          `[cli-bridge] spec for ${toolName} was generated against v${validation.value.binaryVersion}, installed binary is v${versionResult.value}`,
+        // Try the canonical auto-refresh path: ask the binary itself for its
+        // current manifest. Tools following the convention stay in lockstep
+        // across version bumps without manual re-registration.
+        const refreshed = await tryAutoRefreshSpec(
+          toolName,
+          binaryResult.value,
+          versionResult.value,
+          toolDir,
         );
+
+        if (refreshed.ok) {
+          console.error(
+            `[cli-bridge] auto-refreshed spec for ${toolName} to v${versionResult.value} (was v${activeSpec.binaryVersion})`,
+          );
+          activeSpec = refreshed.value.spec;
+          activeExactMatch = true;
+        } else {
+          console.error(
+            `[cli-bridge] spec for ${toolName} was generated against v${activeSpec.binaryVersion}, installed binary is v${versionResult.value}`,
+          );
+          console.error(
+            `[cli-bridge]   auto-refresh unavailable (${refreshed.error}); re-run /cli-bridge:register ${toolName} or write ${toolDir}/${versionResult.value}.json by hand`,
+          );
+        }
       }
 
       seenTools.add(toolName);
       specs.push({
-        spec: validation.value,
+        spec: activeSpec,
         resolvedBinaryPath: binaryResult.value,
         installedVersion: versionResult.value,
-        exactVersionMatch: exactMatch,
+        exactVersionMatch: activeExactMatch,
       });
     }
   }
