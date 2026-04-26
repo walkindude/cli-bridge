@@ -8,6 +8,8 @@
 
 **If you want agents to actually use your CLI, this is the missing piece.**
 
+> Project page: <https://projects.mioli.dev/cli-bridge/> · Blog: <https://blog.mioli.dev> · Author: [Stefano Mioli](https://mioli.dev)
+
 You wrote the CLI, you mentioned it in `CLAUDE.md`, the agent used it twice and then went back to `Bash`. cli-bridge solves that by registering your tool's commands as real MCP tools that live in the agent's tool registry — outside the context window, where they don't decay under conversation pressure.
 
 ## The problem
