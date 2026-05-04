@@ -59,6 +59,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
 
+      # Trusted Publishing OIDC auto-detection landed in npm 11.5.1; the
+      # bundled npm with Node 22 (10.x) is too old, falls back to the
+      # registry-url placeholder auth, and gets 404'd on upload.
+      - name: Ensure npm supports OIDC publishing
+        run: npm install -g npm@latest
+
       - name: Derive npm dist-tag from git tag
         id: meta
         run: |
@@ -161,6 +167,10 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
 
       - run: pnpm run build
+
+      # See note in release-tag: npm@10 (Node 22 default) can't use OIDC.
+      - name: Ensure npm supports OIDC publishing
+        run: npm install -g npm@latest
 
       - name: Publish to npm
         run: npm publish --tag nightly --access public --provenance
