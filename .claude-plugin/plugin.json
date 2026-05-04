@@ -1,7 +1,7 @@
 {
   "name": "cli-bridge",
   "description": "Promotes CLI tools to first-class MCP tools via declarative JSON specs",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": {
     "name": "walkindude"
   },
