@@ -59,20 +59,14 @@ describe('specToMcpTools', () => {
     expect(tools[1]?.name).toBe('mytool_get');
   });
 
-  it('includes trigger text in description', async () => {
+  it('uses only the command description, no trigger text', async () => {
     const { specToMcpTools } = await import('../../src/registry.js');
     const spec = makeValidSpec();
     const tools = specToMcpTools(spec);
-    expect(tools[0]?.description).toContain('USE THIS TOOL');
-    expect(tools[0]?.description).toContain('DO NOT USE');
-    expect(tools[0]?.description).toContain('use mytool for this task');
-  });
-
-  it('maps command description correctly', async () => {
-    const { specToMcpTools } = await import('../../src/registry.js');
-    const spec = makeValidSpec();
-    const tools = specToMcpTools(spec);
-    expect(tools[0]?.description).toContain('List all items');
+    expect(tools[0]?.description).toBe('List all items');
+    expect(tools[0]?.description).not.toContain('USE THIS TOOL');
+    expect(tools[0]?.description).not.toContain('DO NOT USE');
+    expect(tools[0]?.description).not.toContain('use mytool for this task');
   });
 
   it('includes required args in required array', async () => {
@@ -473,6 +467,31 @@ describe('discoverSpecs', () => {
 
     stderrSpy.mockRestore();
     await fs.rm(tempDir, { recursive: true, force: true });
+  });
+});
+
+describe('renderTriggers', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('renders USE / DO NOT USE block from spec triggers', async () => {
+    const { renderTriggers } = await import('../../src/registry.js');
+    const spec = makeValidSpec();
+    const block = renderTriggers(spec);
+    expect(block).toBe('USE: use mytool for this task\nDO NOT USE: do not use mytool for writes');
+  });
+
+  it('joins multiple positive and negative triggers with single spaces', async () => {
+    const { renderTriggers } = await import('../../src/registry.js');
+    const spec = makeValidSpec({
+      triggers: {
+        positive: ['first reason', 'second reason'],
+        negative: ['avoid this', 'or this'],
+      },
+    });
+    const block = renderTriggers(spec);
+    expect(block).toBe('USE: first reason second reason\nDO NOT USE: avoid this or this');
   });
 });
 

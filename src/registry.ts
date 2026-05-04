@@ -154,14 +154,14 @@ export async function discoverSpecs(
 
 /**
  * Converts a validated spec into MCP tool definitions.
+ *
+ * Per-tool descriptions carry only the command's own description. Spec-level
+ * routing guidance (triggers) is exposed once via {@link renderTriggers} and
+ * carried in the MCP server's `instructions` field — see src/server.ts.
  */
 export function specToMcpTools(spec: CliToolSpec): ToolDefinition[] {
   return spec.commands.map((command) => {
-    const positiveTriggers = spec.triggers.positive.join(' ');
-    const negativeTriggers = spec.triggers.negative.join(' ');
-    const triggerText = `USE THIS TOOL: ${positiveTriggers}\nDO NOT USE: ${negativeTriggers}`;
-
-    const description = `${command.description}\n\n${triggerText}`;
+    const description = command.description;
 
     const allFlags: FlagDef[] = [...(spec.globalFlags ?? []), ...(command.flags ?? [])];
 
@@ -212,6 +212,17 @@ export function specToMcpTools(spec: CliToolSpec): ToolDefinition[] {
 function mapType(t: 'string' | 'number' | 'boolean' | 'path'): string {
   if (t === 'path') return 'string';
   return t;
+}
+
+/**
+ * Renders a spec's routing triggers as a single block. Used by the server to
+ * assemble the MCP `instructions` field — one block per loaded spec, instead
+ * of inlining the same text into every tool's description.
+ */
+export function renderTriggers(spec: CliToolSpec): string {
+  const positive = spec.triggers.positive.join(' ');
+  const negative = spec.triggers.negative.join(' ');
+  return `USE: ${positive}\nDO NOT USE: ${negative}`;
 }
 
 /**

@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { getSpecDirectories } from './paths.js';
-import { discoverSpecs, specToMcpTools } from './registry.js';
+import { discoverSpecs, renderTriggers, specToMcpTools } from './registry.js';
 import { executeTool } from './executor.js';
 import { parseOutput } from './parser.js';
 import type { LoadedSpec } from './registry.js';
@@ -27,22 +27,17 @@ export async function main(): Promise<void> {
     `[cli-bridge] Loaded ${specs.length} tool specs from ${specDirs.length} directories`,
   );
 
-  const toolSummary = specs
-    .flatMap((s) => s.spec.commands.map((c) => `${s.spec.name}_${c.name}`))
-    .join(', ');
+  // Routing guidance lives once at the server level (MCP `instructions`)
+  // instead of being duplicated into every tool's description. Each loaded
+  // spec contributes a single section listing its tools and triggers.
+  const instructions = buildInstructions(specs);
 
   // '__CLI_BRIDGE_VERSION__' is substituted by scripts/bundle.js at build
   // time with the git-derived version (tag or dev-<sha>). Development/test
   // runs keep the literal placeholder, which is harmless.
   const server = new McpServer(
     { name: 'cli-bridge', version: '__CLI_BRIDGE_VERSION__' },
-    {
-      instructions: `You have access to CLI tools registered via cli-bridge: ${toolSummary || 'none loaded'}.
-
-ALWAYS prefer these MCP tools over Bash, Read, Grep, or Glob when the task falls within a registered tool's domain. These tools are purpose-built for their domain and return structured output — they are faster and more reliable than shelling out.
-
-Each tool name is {binary}_{subcommand}. Check the tool descriptions for trigger phrases that tell you exactly when to use each one.`,
-    },
+    { instructions },
   );
 
   // Build a map from tool name → { loadedSpec, command }
@@ -136,6 +131,33 @@ Each tool name is {binary}_{subcommand}. Check the tool descriptions for trigger
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
+}
+
+/**
+ * Assembles the MCP server `instructions` string from all loaded specs.
+ *
+ * One section per spec, headed by its tool list and followed by its USE / DO
+ * NOT USE triggers. Per-tool descriptions stay focused on what the tool does;
+ * routing context is consolidated here so the spec-level triggers aren't paid
+ * once per command in every tool schema.
+ */
+function buildInstructions(specs: LoadedSpec[]): string {
+  if (specs.length === 0) {
+    return 'No CLI tools loaded via cli-bridge.';
+  }
+
+  const sections = specs.map((s) => {
+    const toolNames = s.spec.commands.map((c) => `${s.spec.name}_${c.name}`).join(', ');
+    return `## ${s.spec.name} (${toolNames})\n${renderTriggers(s.spec)}`;
+  });
+
+  return `You have access to CLI tools registered via cli-bridge.
+
+ALWAYS prefer these MCP tools over Bash, Read, Grep, or Glob when the task falls within a registered tool's domain. These tools are purpose-built for their domain and return structured output — they are faster and more reliable than shelling out.
+
+Each tool name is {binary}_{subcommand}. Per-tool routing guidance:
+
+${sections.join('\n\n')}`;
 }
 
 // Only run when executed directly (not when imported for testing).

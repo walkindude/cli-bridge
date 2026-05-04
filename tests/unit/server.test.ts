@@ -83,15 +83,23 @@ async function setupAndRunMain(options: {
       required: string[];
     };
   }>;
+  renderTriggers?: (spec: CliToolSpec) => string;
 }): Promise<{
   registeredTools: Array<{ name: string; handler: ToolHandler }>;
   mockConnect: ReturnType<typeof vi.fn>;
+  serverOptions: { instructions?: string } | undefined;
 }> {
   const registeredTools: Array<{ name: string; handler: ToolHandler }> = [];
   const mockConnect = vi.fn().mockResolvedValue(undefined);
+  const captured: { serverOptions?: { instructions?: string } } = {};
 
   vi.doMock('@modelcontextprotocol/sdk/server/mcp.js', () => {
-    const MockMcpServer = function (this: Record<string, unknown>) {
+    const MockMcpServer = function (
+      this: Record<string, unknown>,
+      _info: unknown,
+      opts: { instructions?: string },
+    ) {
+      captured.serverOptions = opts;
       this.registerTool = vi.fn((name: string, _opts: unknown, handler: ToolHandler) => {
         registeredTools.push({ name, handler });
       });
@@ -111,18 +119,24 @@ async function setupAndRunMain(options: {
     getSpecDirectories: vi.fn().mockResolvedValue(['/fake/specs']),
   }));
 
+  const renderTriggersFn =
+    options.renderTriggers ??
+    ((s: CliToolSpec) =>
+      `USE: ${s.triggers.positive.join(' ')}\nDO NOT USE: ${s.triggers.negative.join(' ')}`);
+
   vi.doMock('../../src/registry.js', () => ({
     discoverSpecs: vi.fn().mockResolvedValue({
       specs: options.specs,
       errors: options.errors,
     }),
     specToMcpTools: vi.fn().mockReturnValue(options.toolDefs),
+    renderTriggers: vi.fn(renderTriggersFn),
   }));
 
   const { main } = await import('../../src/server.js');
   await main();
 
-  return { registeredTools, mockConnect };
+  return { registeredTools, mockConnect, serverOptions: captured.serverOptions };
 }
 
 describe('server main()', () => {
@@ -146,13 +160,13 @@ describe('server main()', () => {
       exactVersionMatch: true,
     };
 
-    const { registeredTools, mockConnect } = await setupAndRunMain({
+    const { registeredTools, mockConnect, serverOptions } = await setupAndRunMain({
       specs: [loadedSpec],
       errors: [],
       toolDefs: [
         {
           name: 'testtool_list',
-          description: 'List items\n\nUSE THIS TOOL: use testtool\nDO NOT USE: avoid testtool',
+          description: 'List items',
           inputSchema: {
             type: 'object',
             properties: {
@@ -188,6 +202,19 @@ describe('server main()', () => {
     expect(stderrSpy).toHaveBeenCalledWith(
       expect.stringContaining('[cli-bridge] Loaded 1 tool specs from 1 directories'),
     );
+    // instructions carries the per-spec routing block; tool descriptions stay clean.
+    expect(serverOptions?.instructions).toContain('## testtool (testtool_list, testtool_get)');
+    expect(serverOptions?.instructions).toContain('USE: use testtool');
+    expect(serverOptions?.instructions).toContain('DO NOT USE: avoid testtool');
+  });
+
+  it('passes empty-specs sentinel as instructions when no specs load', async () => {
+    const { serverOptions } = await setupAndRunMain({
+      specs: [],
+      errors: [],
+      toolDefs: [],
+    });
+    expect(serverOptions?.instructions).toBe('No CLI tools loaded via cli-bridge.');
   });
 
   it('logs errors for failed spec loads', async () => {
@@ -433,6 +460,7 @@ describe('server main()', () => {
           },
         },
       ]),
+      renderTriggers: vi.fn().mockReturnValue('USE: x\nDO NOT USE: y'),
     }));
 
     const { main } = await import('../../src/server.js');
@@ -501,6 +529,7 @@ describe('server main()', () => {
           },
         },
       ]),
+      renderTriggers: vi.fn().mockReturnValue('USE: x\nDO NOT USE: y'),
     }));
 
     const { main } = await import('../../src/server.js');
