@@ -59,12 +59,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
 
-      # Trusted Publishing OIDC auto-detection landed in npm 11.5.1; the
-      # bundled npm with Node 22 (10.x) is too old, falls back to the
-      # registry-url placeholder auth, and gets 404'd on upload.
-      - name: Ensure npm supports OIDC publishing
-        run: npm install -g npm@latest
-
       - name: Derive npm dist-tag from git tag
         id: meta
         run: |
@@ -86,8 +80,14 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "::notice::Publishing cli-bridge@$REF with dist-tag=$DIST_TAG (prerelease=$IS_PRERELEASE)"
 
-      - name: Publish to npm
-        run: npm publish --tag "${{ steps.meta.outputs.dist-tag }}" --access public --provenance
+      # Trusted Publishing OIDC auto-detection landed in npm 11.5.1; the
+      # bundled npm with Node 22 is 10.x and falls back to the registry-url
+      # placeholder auth, getting 404'd on upload. Self-upgrade via
+      # `npm install -g npm@latest` corrupts (npm 10 → 11 mid-overwrite),
+      # so we run a one-shot npm 11 from the npx cache instead. The OIDC
+      # env vars (ACTIONS_ID_TOKEN_REQUEST_*) are inherited automatically.
+      - name: Publish to npm (via npx-pinned npm@latest for OIDC)
+        run: npx --package=npm@latest -- npm publish --tag "${{ steps.meta.outputs.dist-tag }}" --access public --provenance
 
       - name: Generate CycloneDX SBOM
         # cyclonedx-npm uses `npm ls` under the hood, which reports spurious
@@ -168,9 +168,7 @@ jobs:
 
       - run: pnpm run build
 
-      # See note in release-tag: npm@10 (Node 22 default) can't use OIDC.
-      - name: Ensure npm supports OIDC publishing
-        run: npm install -g npm@latest
-
-      - name: Publish to npm
-        run: npm publish --tag nightly --access public --provenance
+      # See note in release-tag — bundled npm 10 can't use OIDC, self-upgrade
+      # is fragile, so a one-shot npm 11 via npx is the cleanest path.
+      - name: Publish to npm (via npx-pinned npm@latest for OIDC)
+        run: npx --package=npm@latest -- npm publish --tag nightly --access public --provenance
