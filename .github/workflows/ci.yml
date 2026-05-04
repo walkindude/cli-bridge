@@ -33,17 +33,24 @@ jobs:
       - name: nix build
         run: nix build .#default
 
-  release:
-    needs: check
+  release-tag:
+    # Tag-driven release.
+    #   v<X>             → npm dist-tag `latest`, GH Release marked stable
+    #   v<X>-rc.<N>      → npm dist-tag `rc`, GH Release marked prerelease
+    #   v<X>-<id>.<N>    → npm dist-tag `<id>` (any prerelease identifier works)
+    #
+    # OIDC + npm Trusted Publishing means no long-lived NPM_TOKEN — the
+    # `id-token: write` permission lets npm verify this workflow's identity.
+    needs: [check, nix]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      id-token: write # for npm publish --provenance
+      contents: write # softprops/action-gh-release
+      id-token: write # npm Trusted Publishing + provenance
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # needed for bundle.js to read git tags
+          fetch-depth: 0 # bundle.js reads git tags
       - uses: jdx/mise-action@v4
       - uses: actions/setup-node@v6
         with:
@@ -51,10 +58,37 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      - name: Publish to npm
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Derive npm dist-tag from git tag
+        id: meta
+        run: |
+          REF="${GITHUB_REF#refs/tags/v}"
+          if [[ "$REF" == *-* ]]; then
+            # Prerelease segment present (e.g. 0.1.3-rc.0) — use leading
+            # identifier as the dist-tag and mark the GH Release as prerelease.
+            DIST_TAG="${REF#*-}"
+            DIST_TAG="${DIST_TAG%%.*}"
+            IS_PRERELEASE=true
+          else
+            DIST_TAG=latest
+            IS_PRERELEASE=false
+          fi
+          {
+            echo "version=$REF"
+            echo "dist-tag=$DIST_TAG"
+            echo "is-prerelease=$IS_PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::Publishing cli-bridge@$REF with dist-tag=$DIST_TAG (prerelease=$IS_PRERELEASE)"
+
+      # Trusted Publishing OIDC auto-detection landed in npm 11.5.1; the
+      # bundled npm with Node 22 is 10.x and falls back to the registry-url
+      # placeholder auth, getting 404'd on upload. Self-upgrade via
+      # `npm install -g npm@latest` corrupts (npm 10 → 11 mid-overwrite),
+      # so we run a one-shot npm 11 from the npx cache instead. The OIDC
+      # env vars (ACTIONS_ID_TOKEN_REQUEST_*) are inherited automatically.
+      - name: Publish to npm (via npx-pinned npm@latest for OIDC)
+        run: npx --package=npm@latest -- npm publish --tag "${{ steps.meta.outputs.dist-tag }}" --access public --provenance
+
       - name: Generate CycloneDX SBOM
         # cyclonedx-npm uses `npm ls` under the hood, which reports spurious
         # missing-devDep errors against a pnpm-managed tree. --ignore-npm-errors
@@ -66,8 +100,75 @@ jobs:
             --omit dev \
             --output-format JSON \
             --output-file cli-bridge-sbom.cdx.json
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          prerelease: ${{ steps.meta.outputs.is-prerelease }}
           files: cli-bridge-sbom.cdx.json
+
+  release-nightly:
+    # Master-push nightly. Each commit becomes its own npm version under the
+    # `nightly` dist-tag, leaving `latest` untouched. Version pattern:
+    #   <pkg.version>-nightly.<YYYYMMDD>.<sha7>
+    # so the date sorts the channel and the sha makes builds reproducible.
+    #
+    # No GH Release for nightlies — they're ephemeral, traceable via npm +
+    # the workflow run.
+    needs: [check, nix]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm Trusted Publishing + provenance
+    concurrency:
+      # Serialize nightlies so two close-together master pushes don't race
+      # on the publish step. Don't cancel — we want each commit's nightly
+      # to actually ship.
+      group: nightly-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - run: pnpm install --frozen-lockfile
+
+      - name: Compute nightly version
+        id: meta
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          DATE=$(date -u +%Y%m%d)
+          SHA=$(git rev-parse --short=7 HEAD)
+          VERSION="${BASE}-nightly.${DATE}.${SHA}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "::notice::Publishing cli-bridge@$VERSION with dist-tag=nightly"
+
+      - name: Stamp nightly version into manifests (ephemeral)
+        # Mutate package.json + plugin.json in-place; never committed.
+        # check:versions confirms the two stay in lockstep.
+        run: |
+          node -e "
+            const fs = require('fs');
+            const v = process.env.VERSION;
+            for (const p of ['package.json', '.claude-plugin/plugin.json']) {
+              const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+              j.version = v;
+              fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+            }
+          "
+          pnpm run check:versions
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+
+      - run: pnpm run build
+
+      # See note in release-tag — bundled npm 10 can't use OIDC, self-upgrade
+      # is fragile, so a one-shot npm 11 via npx is the cleanest path.
+      - name: Publish to npm (via npx-pinned npm@latest for OIDC)
+        run: npx --package=npm@latest -- npm publish --tag nightly --access public --provenance
