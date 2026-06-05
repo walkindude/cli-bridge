@@ -1,0 +1,7 @@
+onlyBuiltDependencies:
+  - esbuild
+
+overrides:
+  fast-uri: ^3.1.2
+  hono: ^4.12.14
+  vite: ^8.0.5
